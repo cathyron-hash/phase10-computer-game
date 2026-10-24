@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 Game Lab</title>
+<title>Phase 10 Engine Tests</title>
 
 <style>
 body {
   font: 17px system-ui, -apple-system, sans-serif;
-  max-width: 1100px;
+  max-width: 850px;
   margin: 0 auto;
   padding: 20px;
   background: #f5f6f8;
@@ -42,33 +42,29 @@ button {
 .fail { color: #b42318; }
 .note { color: #555; font-size: .94rem; }
 
-#gameView { margin: 18px 0; }
-.board { background: #176b4d; color: white; border-radius: 18px; padding: 16px; box-shadow: 0 5px 18px #0002; }
-.boardTop { display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; }
-.pile { min-width:100px; text-align:center; padding:8px; background:#ffffff18; border-radius:12px; }
-.pileCards { display:flex; justify-content:center; margin:8px 0; }
-.playerPanel { margin-top:14px; padding:12px; border-radius:12px; background:#ffffff18; }
-.playerHeading { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-weight:700; }
-.hand { display:flex; gap:7px; overflow-x:auto; padding:12px 2px 8px; min-height:105px; align-items:flex-start; }
-.card { flex:0 0 58px; width:58px; height:84px; border:2px solid white; border-radius:8px; background:#fff; color:#222; box-shadow:0 2px 5px #0003; display:flex; flex-direction:column; justify-content:space-between; padding:5px; box-sizing:border-box; font-weight:800; }
-.card .corner { font-size:11px; line-height:1; }
-.card .face { text-align:center; font-size:27px; line-height:1; align-self:center; }
-.card.red { color:#c62828; } .card.blue { color:#1769aa; } .card.green { color:#18804b; } .card.yellow { color:#b27a00; }
-.card.wild { color:#6a35a5; background:linear-gradient(135deg,#fff 0 22%,#f0e5ff 22% 42%,#fff 42% 62%,#e4f7ff 62%); }
-.card.skip { color:#333; background:#ffe8b3; }
-.card.back { background:repeating-linear-gradient(45deg,#183d83,#183d83 7px,#2d61b8 7px,#2d61b8 14px); border-color:#fff; }
-.tableau { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
-.group { padding:8px; border-radius:10px; background:#0002; min-width:90px; }
-.groupCards { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
-.group .card { width:43px; height:63px; flex-basis:43px; padding:3px; }
-.group .card .face { font-size:20px; }
-.muted { opacity:.85; font-size:.9rem; }
-@media (max-width:600px) { body { padding:10px; } .card { flex-basis:52px; width:52px; } .board { padding:10px; } }
+#board { display:grid; gap:14px; margin:18px 0; }
+.board-panel { background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 4px #0001; }
+.board-panel h2 { margin:0 0 10px; font-size:1.15rem; }
+.player-panel { border-left:5px solid #2457a7; }
+.player-meta { color:#555; font-size:.9rem; margin-bottom:10px; }
+.hand, .tableau, .pile-row { display:flex; flex-wrap:wrap; gap:7px; align-items:flex-start; }
+.playing-card { width:48px; min-height:68px; box-sizing:border-box; border:1px solid #cbd1d8; border-radius:7px; background:#fff; padding:5px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; box-shadow:0 1px 2px #0001; font-weight:700; }
+.playing-card .card-value { font-size:1.25rem; line-height:1.1; }
+.playing-card .card-color { font-size:.62rem; text-transform:uppercase; }
+.card-red { color:#c62828; border-color:#e6aaaa; }
+.card-blue { color:#1565c0; border-color:#a7c9ee; }
+.card-green { color:#218443; border-color:#a9d8b6; }
+.card-yellow { color:#8a6a00; border-color:#e6d48b; }
+.card-special { color:#6534a5; border-color:#cbb8e8; }
+.tableau-group { border:1px dashed #b7bec8; border-radius:9px; padding:8px; margin:3px 8px 3px 0; }
+.tableau-label { font-size:.8rem; color:#555; margin-bottom:6px; }
+.small-note { color:#666; font-size:.9rem; }
+@media (min-width:700px) { #board { grid-template-columns:1fr 1fr; } .shared-panel { grid-column:1 / -1; } }
 </style>
 </head>
 
 <body>
-<h1>Phase 10 Game Lab</h1>
+<h1>Phase 10 Engine Test Page</h1>
 
 <p>
 This page tests the Phase 10 JavaScript engine.
@@ -86,6 +82,10 @@ Keep phase10-engine.js in the same folder as this HTML file.
   <button onclick="testPhase1()">Test Phase 1</button>
 </div>
 
+<div id="board" aria-live="polite">
+  <section class="board-panel"><strong>Game board</strong><p class="small-note">Tap “Deal a sample game” or a gameplay test to display the cards.</p></section>
+</div>
+
 <div id="results" aria-live="polite">
 Loading Phase 10 engine...
 </div>
@@ -100,60 +100,121 @@ full game interface are not implemented by this test page.
 import * as Engine from "./phase10-engine.js";
 
 const out = document.getElementById("results");
-const gameView = document.getElementById("gameView");
-
-function cardMarkup(card, back = false) {
-  if (back) return '<div class="card back" aria-label="Face-down card"></div>';
-  if (!card) return '<div class="card">?</div>';
-  const type = String(card.type || "number").toLowerCase();
-  const color = String(card.color || "").toLowerCase();
-  let face = type === "wild" ? "★" : type === "skip" ? "⊘" : (card.number ?? "?");
-  let label = type === "wild" ? "Wild" : type === "skip" ? "Skip" : `${color || "number"} ${face}`;
-  return `<div class="card ${type === "number" ? color : type}" aria-label="${label}">
-    <span class="corner">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
-    <span class="face">${face}</span><span class="corner" style="text-align:right">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
-  </div>`;
-}
-
-function renderGame(game, caption = "Board snapshot") {
-  if (!game) return;
-  const current = game.players?.[game.currentPlayerIndex];
-  const discard = game.discardPile || [];
-  const topDiscard = discard.length ? discard[discard.length - 1] : null;
-  const pileCount = (game.drawPile || []).length;
-  let html = `<div class="board"><div class="boardTop">
-    <div><strong>${caption}</strong><div class="muted">${game.status === "finished" ? "Game finished" : `Round ${game.roundNumber ?? 1} · ${current ? current.name + "'s turn" : "Turn not set"} · ${game.turnStage || ""}`}</div></div>
-    <div class="pile"><strong>Draw pile</strong><div class="pileCards">${cardMarkup(null, true)}</div><div>${pileCount} cards</div></div>
-    <div class="pile"><strong>Discard pile</strong><div class="pileCards">${topDiscard ? cardMarkup(topDiscard) : '<span>Empty</span>'}</div><div>${discard.length} card${discard.length === 1 ? "" : "s"}</div></div>
-  </div>`;
-  for (const player of (game.players || [])) {
-    const active = current && player.id === current.id;
-    html += `<div class="playerPanel"><div class="playerHeading"><span>${player.name}${active ? " · TURN" : ""}</span><span>Phase ${player.phase ?? 1} · Score ${player.score ?? 0} · ${player.hand?.length ?? 0} cards</span></div>`;
-    if (player.hand?.length) html += `<div class="hand">${player.hand.map(c => cardMarkup(c)).join("")}</div>`;
-    else html += `<div class="muted">No cards in hand</div>`;
-    if (player.tableau?.length) {
-      html += '<div class="muted">Cards laid down</div><div class="tableau">';
-      player.tableau.forEach((group, i) => {
-        const cards = group.cards || [];
-        html += `<div class="group"><strong>${group.type || "Group"} ${i + 1}</strong><div class="groupCards">${cards.map(c => cardMarkup(c)).join("")}</div></div>`;
-      });
-      html += '</div>';
-    }
-    html += '</div>';
-  }
-  if (game.winnerId) {
-    const winner = game.players.find(p => p.id === game.winnerId);
-    html += `<h2>${winner ? winner.name : "A player"} wins!</h2>`;
-  }
-  html += '</div>';
-  gameView.innerHTML = html;
-}
+const board = document.getElementById("board");
 
 function log(message, cls = "") {
   const line = document.createElement("div");
   line.className = cls;
   line.textContent = message;
   out.appendChild(line);
+}
+
+function cardLabel(card) {
+  if (!card) return "—";
+  if (card.type === "wild") return "WILD";
+  if (card.type === "skip") return "SKIP";
+  return String(card.number ?? "?");
+}
+
+function cardElement(card) {
+  const el = document.createElement("div");
+  const color = card.type === "number" ? (card.color || "red") : "special";
+  el.className = "playing-card card-" + color;
+  const value = document.createElement("div");
+  value.className = "card-value";
+  value.textContent = cardLabel(card);
+  const suit = document.createElement("div");
+  suit.className = "card-color";
+  suit.textContent = card.type === "number" ? (card.color || "") : "Phase 10";
+  el.append(value, suit);
+  el.title = card.type === "number" ? `${card.number} ${card.color}` : card.type;
+  return el;
+}
+
+function renderCards(container, cards) {
+  container.className = "hand";
+  if (!cards || !cards.length) {
+    const empty = document.createElement("span");
+    empty.className = "small-note";
+    empty.textContent = "No cards";
+    container.appendChild(empty);
+    return;
+  }
+  cards.forEach(card => container.appendChild(cardElement(card)));
+}
+
+function renderGame(game, caption = "Latest game snapshot") {
+  board.replaceChildren();
+  const heading = document.createElement("section");
+  heading.className = "board-panel shared-panel";
+  const h = document.createElement("h2");
+  h.textContent = caption;
+  const summary = document.createElement("div");
+  summary.className = "player-meta";
+  const current = game.players[game.currentPlayerIndex];
+  summary.textContent = `Round ${game.roundNumber ?? 1} · ${game.status || "playing"} · Current player: ${current ? current.name : "—"} · Stage: ${game.turnStage || "—"}`;
+  heading.append(h, summary);
+  board.appendChild(heading);
+
+  game.players.forEach(player => {
+    const panel = document.createElement("section");
+    panel.className = "board-panel player-panel";
+    const title = document.createElement("h2");
+    title.textContent = player.name;
+    const meta = document.createElement("div");
+    meta.className = "player-meta";
+    meta.textContent = `Phase ${player.phase ?? 1} · Score ${player.score ?? 0} · ${player.hand.length} cards in hand${player.laidPhase ? " · Phase laid down" : ""}`;
+    const handTitle = document.createElement("div");
+    handTitle.className = "tableau-label";
+    handTitle.textContent = "Hand";
+    const hand = document.createElement("div");
+    renderCards(hand, player.hand);
+    panel.append(title, meta, handTitle, hand);
+
+    if (player.tableau && player.tableau.length) {
+      const tableTitle = document.createElement("div");
+      tableTitle.className = "tableau-label";
+      tableTitle.style.marginTop = "12px";
+      tableTitle.textContent = "Cards on the table";
+      const groups = document.createElement("div");
+      groups.className = "tableau";
+      player.tableau.forEach((group, index) => {
+        const groupBox = document.createElement("div");
+        groupBox.className = "tableau-group";
+        const label = document.createElement("div");
+        label.className = "tableau-label";
+        label.textContent = group.type || `Group ${index + 1}`;
+        const cards = document.createElement("div");
+        renderCards(cards, group.cards || []);
+        groupBox.append(label, cards);
+        groups.appendChild(groupBox);
+      });
+      panel.append(tableTitle, groups);
+    }
+    board.appendChild(panel);
+  });
+
+  const shared = document.createElement("section");
+  shared.className = "board-panel shared-panel";
+  const sharedTitle = document.createElement("h2");
+  sharedTitle.textContent = "Draw and discard piles";
+  const pileRow = document.createElement("div");
+  pileRow.className = "pile-row";
+  const drawInfo = document.createElement("div");
+  drawInfo.innerHTML = `<strong>Draw pile</strong><br>${(game.drawPile || []).length} cards left`;
+  const discardInfo = document.createElement("div");
+  discardInfo.style.marginLeft = "16px";
+  const topDiscard = (game.discardPile || []).at(-1);
+  discardInfo.append("Discard pile: ");
+  discardInfo.append(document.createTextNode(`${(game.discardPile || []).length} cards`));
+  if (topDiscard) {
+    discardInfo.append(document.createElement("br"));
+    discardInfo.append("Top discard: ");
+    discardInfo.appendChild(cardElement(topDiscard));
+  }
+  pileRow.append(drawInfo, discardInfo);
+  shared.append(sharedTitle, pileRow);
+  board.appendChild(shared);
 }
 
 function reset() {
@@ -336,6 +397,7 @@ function dealSample() {
     const game = Engine.createGame(players());
 
     reset();
+    renderGame(game, "Sample game — all dealt cards visible");
     log("Sample game created successfully.", "pass");
 
     game.players.forEach(player => {
@@ -365,6 +427,7 @@ function testTurn() {
     Engine.discardCard(game, player.id, cardToDiscard.id);
 
     reset();
+    renderGame(game, "After the turn test");
     log("Turn test completed.", "pass");
     log("Cards before turn: " + before);
     log("Card drawn: " + JSON.stringify(drawn));
@@ -451,7 +514,7 @@ function testLayDownPhase1() {
     "ron",
     phaseCards.map(card => card.id)
   );
-  renderGame(game, "Phase 1 lay-down test");
+  renderGame(game, "After Ron lays down Phase 1");
 
   assert(
     "Phase 1 is marked as laid down",
@@ -503,7 +566,7 @@ function testHitOnTable() {
   game.turnStage = "action";
 
   Engine.hitOnTable(game, "ron", "computer", 0, "ron5");
-  renderGame(game, "Hit-on-table test");
+  renderGame(game, "After Ron hits on the computer’s set");
 
   assert(
     "Ron can add a matching card to the computer's set",
@@ -551,7 +614,7 @@ function testEndRound() {
 
   // Ron discards his last card.
   Engine.discardCard(game, "ron", "last");
-  renderGame(game, "Round-ending test");
+  renderGame(game, "After the round-ending discard");
 
   assert(
     "The round advances",
@@ -602,7 +665,7 @@ function testGameVictory() {
   const oldRound = game.roundNumber;
 
   Engine.discardCard(game, "ron", "last");
-  renderGame(game, "Game-victory test");
+  renderGame(game, "After Ron wins Phase 10");
 
   assert("Game status becomes finished", game.status === "finished");
   assert("Ron is declared the winner", game.winnerId === "ron");
@@ -623,6 +686,9 @@ window.runTests = runTests;
 window.dealSample = dealSample;
 window.testTurn = testTurn;
 window.testPhase1 = testPhase1;
+window.testLayDownPhase1 = testLayDownPhase1;
+window.testHitOnTable = testHitOnTable;
+window.testEndRound = testEndRound;
 window.testLayDownPhase1 = testLayDownPhase1;
 window.testHitOnTable = testHitOnTable;
 window.testEndRound = testEndRound;
