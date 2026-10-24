@@ -90,7 +90,7 @@ button.secondary { background:#626b78; }
     <button id="discard-selected" type="button" disabled>Discard selected card</button>
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
   </div>
-  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. On your turn, draw from either pile, tap a card in your hand to select it, then discard it.</p>
+  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. On your turn, draw from either pile, tap a card in your hand to select it, then discard it. The computer will take its turn automatically.</p>
   <h3>Your hand</h3>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
@@ -119,7 +119,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. This prototype implements the human draw/select/discard flow; computer turns and full Phase 10 strategy are not automated yet.
+Diagnostics exercise the rules engine. The computer now chooses a pile, draws, and discards using a simple card-keeping heuristic. Phase lay-downs and full Phase 10 strategy are not automated yet.
 </p>
 
 <script type="module">
@@ -213,6 +213,61 @@ function drawPlayableCard(source) {
   }
 }
 
+function cardKeepValue(card, hand) {
+  if (card.type === "wild") return 7;
+  if (card.type === "skip") return 0.5;
+  const sameNumber = hand.filter(c => c.id !== card.id && c.type === "number" && c.number === card.number).length;
+  const sameColor = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color).length;
+  const neighbors = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color && Math.abs(c.number - card.number) === 1).length;
+  const phase = playableGame?.players.find(p => p.id === computerId)?.phase ?? 1;
+  let value = sameNumber * 3.2 + neighbors * 2.2;
+  if (phase === 8) value += sameColor * 1.15;
+  else value += sameColor * 0.15;
+  // Mid-range numbers are a little easier to use in runs than edge numbers.
+  if (card.number >= 3 && card.number <= 10) value += 0.25;
+  return value;
+}
+
+function computerTurn() {
+  if (!playableGame || playableGame.status !== "playing" || currentPlayablePlayer()?.id !== computerId) return;
+  const computer = playableGame.players.find(p => p.id === computerId);
+  const human = playableGame.players.find(p => p.id === humanId);
+  try {
+    const top = playableGame.discardPile.at(-1);
+    const currentHand = computer.hand;
+    const topValue = top ? cardKeepValue(top, currentHand) : -1;
+    const weakestExisting = currentHand.length
+      ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand)))
+      : -1;
+    // Take the discard only when it improves the hand more than drawing blindly.
+    const source = top && topValue >= weakestExisting + 0.8 ? "discard" : "draw";
+    const drawn = Engine.drawCard(playableGame, computerId, source);
+    const handAfterDraw = computer.hand;
+    const discard = handAfterDraw.reduce((worst, card) => {
+      if (!worst) return card;
+      const score = cardKeepValue(card, handAfterDraw);
+      const worstScore = cardKeepValue(worst, handAfterDraw);
+      if (score < worstScore) return card;
+      if (score === worstScore && card.type === "number" && worst.type === "number" && card.number > worst.number) return card;
+      return worst;
+    }, null);
+    if (!discard) throw new Error("The computer couldn't choose a discard.");
+    Engine.discardCard(playableGame, computerId, discard.id);
+    const sourceLabel = source === "discard" ? "the discard pile" : "the draw pile";
+    if (playableGame.status === "finished") {
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}, discarded ${cardLabel(discard)}, and won the game!`;
+    } else if (playableGame.lastAction.type === "roundEnd") {
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel} and discarded ${cardLabel(discard)}. The round is over; a new round has started.`;
+    } else {
+      playMessage.textContent = `${computer.name} took ${sourceLabel}, drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}, and discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}. Your turn, Ron.`;
+    }
+  } catch (error) {
+    playMessage.textContent = `Computer turn stopped: ${error.message}`;
+  }
+  selectedCardId = null;
+  renderPlayableGame();
+}
+
 function discardPlayableCard() {
   if (!playableGame || !selectedCardId) return;
   try {
@@ -222,7 +277,10 @@ function discardPlayableCard() {
     if (playableGame.status === "finished") {
       playMessage.textContent = `${playableGame.players.find(p => p.id === playableGame.winnerId)?.name || "A player"} wins the game!`;
     } else {
-      playMessage.textContent = `Discarded ${cardLabel(discarded)}. It is now ${currentPlayablePlayer()?.name || "the next player"}’s turn. The computer turn is not automated in this prototype yet.`;
+      playMessage.textContent = `You discarded ${cardLabel(discarded)}. The computer is thinking…`;
+      renderPlayableGame();
+      computerTurn();
+      return;
     }
     renderPlayableGame();
   } catch (error) {
