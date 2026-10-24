@@ -55,6 +55,7 @@ Keep phase10-engine.js in the same folder as this HTML file.
 <div class="buttons">
   <button onclick="runTests()">Run all tests</button>
   <button onclick="testLayDownPhase1()">Test laying down Phase 1</button>
+  <button onclick="testHitOnTable()">Test hitting on a phase</button>
   <button onclick="dealSample()">Deal a sample game</button>
   <button onclick="testTurn()">Test a turn</button>
   <button onclick="testPhase1()">Test Phase 1</button>
@@ -395,12 +396,64 @@ function testLayDownPhase1() {
 
   out.textContent += "\nPhase 1 lay-down test completed.";
 }
+
   
+function testHitOnTable() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Give the computer a set of three 5s.
+  computer.laidPhase = true;
+  computer.tableau = [{
+    type: "set",
+    cards: [
+      { id: "c1", type: "number", color: "red", number: 5 },
+      { id: "c2", type: "number", color: "blue", number: 5 },
+      { id: "c3", type: "number", color: "green", number: 5 }
+    ]
+  }];
+
+  // Ron has already laid down his phase and holds another 5.
+  ron.laidPhase = true;
+  ron.hand = [
+    { id: "ron5", type: "number", color: "yellow", number: 5 }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  Engine.hitOnTable(game, "ron", "computer", 0, "ron5");
+
+  assert(
+    "Ron can add a matching card to the computer's set",
+    computer.tableau[0].cards.length === 4
+  );
+
+  assert(
+    "The played card is removed from Ron's hand",
+    !ron.hand.some(card => card.id === "ron5")
+  );
+
+  assert(
+    "The computer's set still contains only 5s",
+    computer.tableau[0].cards.every(
+      card => card.type === "number" && card.number === 5
+    )
+  );
+}
+
 window.runTests = runTests;
 window.dealSample = dealSample;
 window.testTurn = testTurn;
 window.testPhase1 = testPhase1;
 window.testLayDownPhase1 = testLayDownPhase1;
+window.testHitOnTable = testHitOnTable;
 
 out.textContent =
   "Engine module loaded. Choose a test button to begin.";
