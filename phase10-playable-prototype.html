@@ -95,6 +95,8 @@ button.secondary { background:#626b78; }
   <h3>Your hand</h3>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
+  <h3>Computer’s hand (testing view)</h3>
+  <div id="computer-hand" class="hand" aria-label="Computer hand shown for testing"></div>
 </section>
 
 <h2>Engine diagnostics</h2>
@@ -120,7 +122,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. During a game, tap to select multiple cards and choose “Lay down my phase”; select exactly one card to discard. The computer currently draws and discards using a simple card-keeping heuristic; computer phase lay-downs are not automated yet.
+Diagnostics exercise the rules engine. Testing view shows the computer’s hand. During a game, tap to select multiple cards and choose “Lay down my phase”; select exactly one card to discard. The computer automatically checks for a valid phase after drawing, lays it down when possible, then discards.
 </p>
 
 <script type="module">
@@ -131,6 +133,7 @@ const board = document.getElementById("board");
 const playStatus = document.getElementById("game-status");
 const playMessage = document.getElementById("game-message");
 const humanHand = document.getElementById("human-hand");
+const computerHand = document.getElementById("computer-hand");
 const drawPileButton = document.getElementById("draw-pile");
 const discardPileButton = document.getElementById("discard-pile");
 const discardSelectedButton = document.getElementById("discard-selected");
@@ -184,6 +187,10 @@ function renderPlayableGame() {
   humanHand.replaceChildren();
   player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
   if (!player.hand.length) humanHand.textContent = "No cards in hand.";
+  const computer = playableGame.players.find(p => p.id === computerId);
+  computerHand.replaceChildren();
+  computer.hand.forEach(card => computerHand.appendChild(cardElement(card)));
+  if (!computer.hand.length) computerHand.textContent = "No cards in hand.";
   document.getElementById("draw-count").textContent = `${playableGame.drawPile.length} cards`;
   const top = playableGame.discardPile.at(-1);
   const discardTop = document.getElementById("discard-top");
@@ -195,7 +202,7 @@ function renderPlayableGame() {
   discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
   layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0;
   clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
-  document.getElementById("opponent-strip").textContent = `Computer: ${playableGame.players.find(p => p.id === computerId).hand.length} cards · Phase ${playableGame.players.find(p => p.id === computerId).phase} · Score ${playableGame.players.find(p => p.id === computerId).score}`;
+  document.getElementById("opponent-strip").textContent = `Computer: ${computer.hand.length} cards · Phase ${computer.phase} · Score ${computer.score}${computer.laidPhase ? " · Phase laid down" : ""}`;
 }
 
 function startPlayableGame() {
@@ -237,10 +244,32 @@ function cardKeepValue(card, hand) {
   return value;
 }
 
+function findComputerPhaseCards(hand, phaseNumber) {
+  const expected = (Engine.PHASES[phaseNumber - 1] || []).reduce((sum, part) => sum + part.count, 0);
+  if (!expected || hand.length < expected) return null;
+  const search = (start, chosen) => {
+    if (chosen.length === expected) {
+      try {
+        Engine.validatePhase(chosen, phaseNumber);
+        return chosen.map(card => card.id);
+      } catch (_) {
+        return null;
+      }
+    }
+    for (let i = start; i <= hand.length - (expected - chosen.length); i++) {
+      chosen.push(hand[i]);
+      const result = search(i + 1, chosen);
+      chosen.pop();
+      if (result) return result;
+    }
+    return null;
+  };
+  return search(0, []);
+}
+
 function computerTurn() {
   if (!playableGame || playableGame.status !== "playing" || currentPlayablePlayer()?.id !== computerId) return;
   const computer = playableGame.players.find(p => p.id === computerId);
-  const human = playableGame.players.find(p => p.id === humanId);
   try {
     const top = playableGame.discardPile.at(-1);
     const currentHand = computer.hand;
@@ -248,9 +277,17 @@ function computerTurn() {
     const weakestExisting = currentHand.length
       ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand)))
       : -1;
-    // Take the discard only when it improves the hand more than drawing blindly.
     const source = top && topValue >= weakestExisting + 0.8 ? "discard" : "draw";
     const drawn = Engine.drawCard(playableGame, computerId, source);
+    let phaseMessage = "";
+    if (!computer.laidPhase) {
+      const phaseIds = findComputerPhaseCards(computer.hand, computer.phase);
+      if (phaseIds) {
+        const phaseNumber = computer.phase;
+        Engine.layDownPhase(playableGame, computerId, phaseIds);
+        phaseMessage = ` and laid down Phase ${phaseNumber}`;
+      }
+    }
     const handAfterDraw = computer.hand;
     const discard = handAfterDraw.reduce((worst, card) => {
       if (!worst) return card;
@@ -264,11 +301,11 @@ function computerTurn() {
     Engine.discardCard(playableGame, computerId, discard.id);
     const sourceLabel = source === "discard" ? "the discard pile" : "the draw pile";
     if (playableGame.status === "finished") {
-      playMessage.textContent = `${computer.name} drew from ${sourceLabel}, discarded ${cardLabel(discard)}, and won the game!`;
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage}, discarded ${cardLabel(discard)}, and won the game!`;
     } else if (playableGame.lastAction.type === "roundEnd") {
-      playMessage.textContent = `${computer.name} drew from ${sourceLabel} and discarded ${cardLabel(discard)}. The round is over; a new round has started.`;
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage} and discarded ${cardLabel(discard)}. The round is over; a new round has started.`;
     } else {
-      playMessage.textContent = `${computer.name} took ${sourceLabel}, drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}, and discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}. Your turn, Ron.`;
+      playMessage.textContent = `${computer.name} took ${sourceLabel}, drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}${phaseMessage}, and discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}. Your turn, Ron.`;
     }
   } catch (error) {
     playMessage.textContent = `Computer turn stopped: ${error.message}`;
