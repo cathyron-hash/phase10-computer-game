@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 10 Engine Tests</title>
+
+<style>
+body {
+  font: 17px system-ui, -apple-system, sans-serif;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f5f6f8;
+  color: #20242a;
+}
+h1 { font-size: 1.7rem; }
+p { line-height: 1.45; }
+.buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+button {
+  font: inherit;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #2457a7;
+  color: white;
+}
+#results {
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.pass { color: #167443; }
+.fail { color: #b42318; }
+.note { color: #555; font-size: .94rem; }
+</style>
+</head>
+
+<body>
+<h1>Phase 10 Engine Test Page</h1>
+
+<p>
+This page tests the Phase 10 JavaScript engine.
+Keep phase10-engine.js in the same folder as this HTML file.
+</p>
+
+<div class="buttons">
+  <button onclick="runTests()">Run all tests</button>
+  <button onclick="dealSample()">Deal a sample game</button>
+  <button onclick="testTurn()">Test a turn</button>
+  <button onclick="testPhase1()">Test Phase 1</button>
+</div>
+
+<div id="results" aria-live="polite">
+Loading Phase 10 engine...
+</div>
+
+<p class="note">
+These are diagnostic tests, not a complete certification
+of every official rule. Computer-player strategy and the
+full game interface are not implemented by this test page.
+</p>
+
+<script type="module">
+import * as Engine from "./phase10-engine.js";
+
+const out = document.getElementById("results");
+
+function log(message, cls = "") {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = message;
+  out.appendChild(line);
+}
+
+function reset() {
+  out.replaceChildren();
+}
+
+function assert(name, condition) {
+  log(
+    (condition ? "PASS: " : "FAIL: ") + name,
+    condition ? "pass" : "fail"
+  );
+  return !!condition;
+}
+
+function num(number, color = "red", id) {
+  return {
+    id: id || "n" + Math.random().toString(36).slice(2),
+    type: "number",
+    number,
+    color
+  };
+}
+
+function wild(id) {
+  return {
+    id: id || "w" + Math.random().toString(36).slice(2),
+    type: "wild",
+    number: null,
+    color: null
+  };
+}
+
+function players() {
+  return [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+}
+
+function validPhase(cards, phaseNumber) {
+  try {
+    Engine.validatePhase(cards, phaseNumber);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function runTests() {
+  reset();
+
+  let passed = 0;
+  let total = 0;
+
+  function test(name, fn) {
+    total++;
+    try {
+      if (assert(name, fn())) passed++;
+    } catch (error) {
+      assert(name + " — " + error.message, false);
+    }
+  }
+
+  test("Deck contains 108 cards", () =>
+    Engine.createDeck().length === 108
+  );
+
+  test("Deck has 96 number cards", () =>
+    Engine.createDeck().filter(c => c.type === "number").length === 96
+  );
+
+  test("Deck has 8 wild cards", () =>
+    Engine.createDeck().filter(c => c.type === "wild").length === 8
+  );
+
+  test("Deck has 4 skip cards", () =>
+    Engine.createDeck().filter(c => c.type === "skip").length === 4
+  );
+
+  test("Phase 1 accepts two sets of three", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a wild in a set", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      wild("c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects an invalid set", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(8, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects the wrong number of cards", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c")
+    ], 1)
+  );
+
+  test("Phase 8 accepts seven cards of one color", () =>
+    validPhase([
+      num(1, "blue", "a"),
+      num(2, "blue", "b"),
+      num(3, "blue", "c"),
+      num(4, "blue", "d"),
+      num(5, "blue", "e"),
+      num(6, "blue", "f"),
+      num(7, "blue", "g")
+    ], 8)
+  );
+
+  test("Game starts with 10 cards per player", () => {
+    const game = Engine.createGame(players());
+
+    return game.players.every(p => p.hand.length === 10)
+      && game.status === "playing";
+  });
+
+  test("Game begins ready for a draw", () => {
+    const game = Engine.createGame(players());
+
+    return game.turnStage === "draw"
+      && game.players.length === 2;
+  });
+
+  test("Drawing a card advances the turn stage", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    return game.turnStage === "action"
+      && player.hand.length === 11;
+  });
+
+  test("Drawing and discarding advances to the next player", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    const card = player.hand[0];
+
+    Engine.discardCard(game, player.id, card.id);
+
+    return game.currentPlayerIndex !== 0
+      && game.turnStage === "draw";
+  });
+
+  log("", "");
+  log(
+    `${passed} of ${total} tests passed.`,
+    passed === total ? "pass" : "fail"
+  );
+}
+
+function dealSample() {
+  try {
+    const game = Engine.createGame(players());
+
+    reset();
+    log("Sample game created successfully.", "pass");
+
+    game.players.forEach(player => {
+      log(`${player.name}: ${player.hand.length} cards; phase ${player.phase}`);
+    });
+
+    log("Draw pile: " + game.drawPile.length + " cards");
+    log("Discard pile: " + game.discardPile.length + " card");
+    log("Current player: " +
+      game.players[game.currentPlayerIndex].name);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testTurn() {
+  try {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    const before = player.hand.length;
+
+    const drawn = Engine.drawCard(game, player.id);
+    const cardToDiscard = player.hand[0];
+
+    Engine.discardCard(game, player.id, cardToDiscard.id);
+
+    reset();
+    log("Turn test completed.", "pass");
+    log("Cards before turn: " + before);
+    log("Card drawn: " + JSON.stringify(drawn));
+    log("Cards after discarding: " + player.hand.length);
+    log("Next player: " +
+      game.players[game.currentPlayerIndex].name);
+    log("Turn stage: " + game.turnStage);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testPhase1() {
+  reset();
+
+  const validCards = [
+    num(7, "red", "a"),
+    num(7, "blue", "b"),
+    num(7, "green", "c"),
+    num(9, "red", "d"),
+    num(9, "blue", "e"),
+    num(9, "green", "f")
+  ];
+
+  assert(
+    "Two sets of three are valid for Phase 1",
+    validPhase(validCards, 1)
+  );
+
+  const invalidCards = [
+    num(7, "red", "g"),
+    num(8, "blue", "h"),
+    num(7, "green", "i"),
+    num(9, "red", "j"),
+    num(9, "blue", "k"),
+    num(9, "green", "l")
+  ];
+
+  assert(
+    "A mismatched set is rejected",
+    !validPhase(invalidCards, 1)
+  );
+
+  const wildCards = [
+    num(7, "red", "m"),
+    num(7, "blue", "n"),
+    wild("o"),
+    num(9, "red", "p"),
+    num(9, "blue", "q"),
+    num(9, "green", "r")
+  ];
+
+  assert(
+    "A wild card can complete a set",
+    validPhase(wildCards, 1)
+  );
+}
+
+window.runTests = runTests;
+window.dealSample = dealSample;
+window.testTurn = testTurn;
+window.testPhase1 = testPhase1;
+
+out.textContent =
+  "Engine module loaded. Choose a test button to begin.";
+</script>
+</body>
+</html>
