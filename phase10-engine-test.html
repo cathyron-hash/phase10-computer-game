@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 10 Game Lab</title>
+
+<style>
+body {
+  font: 17px system-ui, -apple-system, sans-serif;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f5f6f8;
+  color: #20242a;
+}
+h1 { font-size: 1.7rem; }
+p { line-height: 1.45; }
+.buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+button {
+  font: inherit;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #2457a7;
+  color: white;
+}
+#results {
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.pass { color: #167443; }
+.fail { color: #b42318; }
+.note { color: #555; font-size: .94rem; }
+
+#gameView { margin: 18px 0; }
+.board { background: #176b4d; color: white; border-radius: 18px; padding: 16px; box-shadow: 0 5px 18px #0002; }
+.boardTop { display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; }
+.pile { min-width:100px; text-align:center; padding:8px; background:#ffffff18; border-radius:12px; }
+.pileCards { display:flex; justify-content:center; margin:8px 0; }
+.playerPanel { margin-top:14px; padding:12px; border-radius:12px; background:#ffffff18; }
+.playerHeading { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-weight:700; }
+.hand { display:flex; gap:7px; overflow-x:auto; padding:12px 2px 8px; min-height:105px; align-items:flex-start; }
+.card { flex:0 0 58px; width:58px; height:84px; border:2px solid white; border-radius:8px; background:#fff; color:#222; box-shadow:0 2px 5px #0003; display:flex; flex-direction:column; justify-content:space-between; padding:5px; box-sizing:border-box; font-weight:800; }
+.card .corner { font-size:11px; line-height:1; }
+.card .face { text-align:center; font-size:27px; line-height:1; align-self:center; }
+.card.red { color:#c62828; } .card.blue { color:#1769aa; } .card.green { color:#18804b; } .card.yellow { color:#b27a00; }
+.card.wild { color:#6a35a5; background:linear-gradient(135deg,#fff 0 22%,#f0e5ff 22% 42%,#fff 42% 62%,#e4f7ff 62%); }
+.card.skip { color:#333; background:#ffe8b3; }
+.card.back { background:repeating-linear-gradient(45deg,#183d83,#183d83 7px,#2d61b8 7px,#2d61b8 14px); border-color:#fff; }
+.tableau { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+.group { padding:8px; border-radius:10px; background:#0002; min-width:90px; }
+.groupCards { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+.group .card { width:43px; height:63px; flex-basis:43px; padding:3px; }
+.group .card .face { font-size:20px; }
+.muted { opacity:.85; font-size:.9rem; }
+@media (max-width:600px) { body { padding:10px; } .card { flex-basis:52px; width:52px; } .board { padding:10px; } }
+</style>
+</head>
+
+<body>
+<h1>Phase 10 Game Lab</h1>
+
+<p>
+This page tests the Phase 10 JavaScript engine.
+Keep phase10-engine.js in the same folder as this HTML file.
+</p>
+
+<div class="buttons">
+  <button onclick="runTests()">Run all tests</button>
+  <button onclick="testLayDownPhase1()">Test laying down Phase 1</button>
+  <button onclick="testHitOnTable()">Test hitting on a phase</button>
+  <button onclick="testEndRound()">Test ending a round</button>
+  <button onclick="testGameVictory()">Test game victory</button>  
+  <button onclick="dealSample()">Deal a sample game</button>
+  <button onclick="testTurn()">Test a turn</button>
+  <button onclick="testPhase1()">Test Phase 1</button>
+</div>
+
+<div id="results" aria-live="polite">
+Loading Phase 10 engine...
+</div>
+
+<p class="note">
+These are diagnostic tests, not a complete certification
+of every official rule. Computer-player strategy and the
+full game interface are not implemented by this test page.
+</p>
+
+<script type="module">
+import * as Engine from "./phase10-engine.js";
+
+const out = document.getElementById("results");
+const gameView = document.getElementById("gameView");
+
+function cardMarkup(card, back = false) {
+  if (back) return '<div class="card back" aria-label="Face-down card"></div>';
+  if (!card) return '<div class="card">?</div>';
+  const type = String(card.type || "number").toLowerCase();
+  const color = String(card.color || "").toLowerCase();
+  let face = type === "wild" ? "★" : type === "skip" ? "⊘" : (card.number ?? "?");
+  let label = type === "wild" ? "Wild" : type === "skip" ? "Skip" : `${color || "number"} ${face}`;
+  return `<div class="card ${type === "number" ? color : type}" aria-label="${label}">
+    <span class="corner">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
+    <span class="face">${face}</span><span class="corner" style="text-align:right">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
+  </div>`;
+}
+
+function renderGame(game, caption = "Board snapshot") {
+  if (!game) return;
+  const current = game.players?.[game.currentPlayerIndex];
+  const discard = game.discardPile || [];
+  const topDiscard = discard.length ? discard[discard.length - 1] : null;
+  const pileCount = (game.drawPile || []).length;
+  let html = `<div class="board"><div class="boardTop">
+    <div><strong>${caption}</strong><div class="muted">${game.status === "finished" ? "Game finished" : `Round ${game.roundNumber ?? 1} · ${current ? current.name + "'s turn" : "Turn not set"} · ${game.turnStage || ""}`}</div></div>
+    <div class="pile"><strong>Draw pile</strong><div class="pileCards">${cardMarkup(null, true)}</div><div>${pileCount} cards</div></div>
+    <div class="pile"><strong>Discard pile</strong><div class="pileCards">${topDiscard ? cardMarkup(topDiscard) : '<span>Empty</span>'}</div><div>${discard.length} card${discard.length === 1 ? "" : "s"}</div></div>
+  </div>`;
+  for (const player of (game.players || [])) {
+    const active = current && player.id === current.id;
+    html += `<div class="playerPanel"><div class="playerHeading"><span>${player.name}${active ? " · TURN" : ""}</span><span>Phase ${player.phase ?? 1} · Score ${player.score ?? 0} · ${player.hand?.length ?? 0} cards</span></div>`;
+    if (player.hand?.length) html += `<div class="hand">${player.hand.map(c => cardMarkup(c)).join("")}</div>`;
+    else html += `<div class="muted">No cards in hand</div>`;
+    if (player.tableau?.length) {
+      html += '<div class="muted">Cards laid down</div><div class="tableau">';
+      player.tableau.forEach((group, i) => {
+        const cards = group.cards || [];
+        html += `<div class="group"><strong>${group.type || "Group"} ${i + 1}</strong><div class="groupCards">${cards.map(c => cardMarkup(c)).join("")}</div></div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  if (game.winnerId) {
+    const winner = game.players.find(p => p.id === game.winnerId);
+    html += `<h2>${winner ? winner.name : "A player"} wins!</h2>`;
+  }
+  html += '</div>';
+  gameView.innerHTML = html;
+}
+
+function log(message, cls = "") {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = message;
+  out.appendChild(line);
+}
+
+function reset() {
+  out.replaceChildren();
+}
+
+function assert(name, condition) {
+  log(
+    (condition ? "PASS: " : "FAIL: ") + name,
+    condition ? "pass" : "fail"
+  );
+  return !!condition;
+}
+
+function num(number, color = "red", id) {
+  return {
+    id: id || "n" + Math.random().toString(36).slice(2),
+    type: "number",
+    number,
+    color
+  };
+}
+
+function wild(id) {
+  return {
+    id: id || "w" + Math.random().toString(36).slice(2),
+    type: "wild",
+    number: null,
+    color: null
+  };
+}
+
+function players() {
+  return [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+}
+
+function validPhase(cards, phaseNumber) {
+  try {
+    Engine.validatePhase(cards, phaseNumber);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function runTests() {
+  reset();
+
+  let passed = 0;
+  let total = 0;
+
+  function test(name, fn) {
+    total++;
+    try {
+      if (assert(name, fn())) passed++;
+    } catch (error) {
+      assert(name + " — " + error.message, false);
+    }
+  }
+
+  test("Deck contains 108 cards", () =>
+    Engine.createDeck().length === 108
+  );
+
+  test("Deck has 96 number cards", () =>
+    Engine.createDeck().filter(c => c.type === "number").length === 96
+  );
+
+  test("Deck has 8 wild cards", () =>
+    Engine.createDeck().filter(c => c.type === "wild").length === 8
+  );
+
+  test("Deck has 4 skip cards", () =>
+    Engine.createDeck().filter(c => c.type === "skip").length === 4
+  );
+
+  test("Phase 1 accepts two sets of three", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a wild in a set", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      wild("c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects an invalid set", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(8, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects the wrong number of cards", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c")
+    ], 1)
+  );
+
+  test("Phase 8 accepts seven cards of one color", () =>
+    validPhase([
+      num(1, "blue", "a"),
+      num(2, "blue", "b"),
+      num(3, "blue", "c"),
+      num(4, "blue", "d"),
+      num(5, "blue", "e"),
+      num(6, "blue", "f"),
+      num(7, "blue", "g")
+    ], 8)
+  );
+
+  test("Game starts with 10 cards per player", () => {
+    const game = Engine.createGame(players());
+
+    return game.players.every(p => p.hand.length === 10)
+      && game.status === "playing";
+  });
+
+  test("Game begins ready for a draw", () => {
+    const game = Engine.createGame(players());
+
+    return game.turnStage === "draw"
+      && game.players.length === 2;
+  });
+
+  test("Drawing a card advances the turn stage", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    return game.turnStage === "action"
+      && player.hand.length === 11;
+  });
+
+  test("Drawing and discarding advances to the next player", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    const card = player.hand[0];
+
+    Engine.discardCard(game, player.id, card.id);
+
+    return game.currentPlayerIndex !== 0
+      && game.turnStage === "draw";
+  });
+
+  log("", "");
+  log(
+    `${passed} of ${total} tests passed.`,
+    passed === total ? "pass" : "fail"
+  );
+}
+
+function dealSample() {
+  try {
+    const game = Engine.createGame(players());
+
+    reset();
+    log("Sample game created successfully.", "pass");
+
+    game.players.forEach(player => {
+      log(`${player.name}: ${player.hand.length} cards; phase ${player.phase}`);
+    });
+
+    log("Draw pile: " + game.drawPile.length + " cards");
+    log("Discard pile: " + game.discardPile.length + " card");
+    log("Current player: " +
+      game.players[game.currentPlayerIndex].name);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testTurn() {
+  try {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    const before = player.hand.length;
+
+    const drawn = Engine.drawCard(game, player.id);
+    const cardToDiscard = player.hand[0];
+
+    Engine.discardCard(game, player.id, cardToDiscard.id);
+
+    reset();
+    log("Turn test completed.", "pass");
+    log("Cards before turn: " + before);
+    log("Card drawn: " + JSON.stringify(drawn));
+    log("Cards after discarding: " + player.hand.length);
+    log("Next player: " +
+      game.players[game.currentPlayerIndex].name);
+    log("Turn stage: " + game.turnStage);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testPhase1() {
+  reset();
+
+  const validCards = [
+    num(7, "red", "a"),
+    num(7, "blue", "b"),
+    num(7, "green", "c"),
+    num(9, "red", "d"),
+    num(9, "blue", "e"),
+    num(9, "green", "f")
+  ];
+
+  assert(
+    "Two sets of three are valid for Phase 1",
+    validPhase(validCards, 1)
+  );
+
+  const invalidCards = [
+    num(7, "red", "g"),
+    num(8, "blue", "h"),
+    num(7, "green", "i"),
+    num(9, "red", "j"),
+    num(9, "blue", "k"),
+    num(9, "green", "l")
+  ];
+
+  assert(
+    "A mismatched set is rejected",
+    !validPhase(invalidCards, 1)
+  );
+
+  const wildCards = [
+    num(7, "red", "m"),
+    num(7, "blue", "n"),
+    wild("o"),
+    num(9, "red", "p"),
+    num(9, "blue", "q"),
+    num(9, "green", "r")
+  ];
+
+  assert(
+    "A wild card can complete a set",
+    validPhase(wildCards, 1)
+  );
+}
+
+function testLayDownPhase1() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  // Give Ron a known Phase 1: two sets of three.
+  const phaseCards = [
+    { id: "a", type: "number", color: "red", number: 5 },
+    { id: "b", type: "number", color: "blue", number: 5 },
+    { id: "c", type: "number", color: "green", number: 5 },
+    { id: "d", type: "number", color: "red", number: 9 },
+    { id: "e", type: "number", color: "blue", number: 9 },
+    { id: "f", type: "number", color: "yellow", number: 9 }
+  ];
+
+  game.players[0].hand = [...phaseCards];
+  game.currentPlayerIndex = 0;
+  game.turnStage = "action";
+
+  Engine.layDownPhase(
+    game,
+    "ron",
+    phaseCards.map(card => card.id)
+  );
+  renderGame(game, "Phase 1 lay-down test");
+
+  assert(
+    "Phase 1 is marked as laid down",
+    game.players[0].laidPhase === true
+  );
+
+  assert(
+    "Six phase cards are removed from the hand",
+    game.players[0].hand.length === 0
+  );
+
+  assert(
+    "Two sets are placed on the table",
+    game.players[0].tableau.length === 2
+  );
+
+  out.textContent += "\nPhase 1 lay-down test completed.";
+}
+
+  
+function testHitOnTable() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Give the computer a set of three 5s.
+  computer.laidPhase = true;
+  computer.tableau = [{
+    type: "set",
+    cards: [
+      { id: "c1", type: "number", color: "red", number: 5 },
+      { id: "c2", type: "number", color: "blue", number: 5 },
+      { id: "c3", type: "number", color: "green", number: 5 }
+    ]
+  }];
+
+  // Ron has already laid down his phase and holds another 5.
+  ron.laidPhase = true;
+  ron.hand = [
+    { id: "ron5", type: "number", color: "yellow", number: 5 }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  Engine.hitOnTable(game, "ron", "computer", 0, "ron5");
+  renderGame(game, "Hit-on-table test");
+
+  assert(
+    "Ron can add a matching card to the computer's set",
+    computer.tableau[0].cards.length === 4
+  );
+
+  assert(
+    "The played card is removed from Ron's hand",
+    !ron.hand.some(card => card.id === "ron5")
+  );
+
+  assert(
+    "The computer's set still contains only 5s",
+    computer.tableau[0].cards.every(
+      card => card.type === "number" && card.number === 5
+    )
+  );
+}
+
+
+function testEndRound() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Set up a controlled end-of-round situation.
+  ron.hand = [
+    { id: "last", type: "number", color: "red", number: 5 }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", color: "blue", number: 2 },
+    { id: "left2", type: "wild" }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  // Ron discards his last card.
+  Engine.discardCard(game, "ron", "last");
+  renderGame(game, "Round-ending test");
+
+  assert(
+    "The round advances",
+    game.roundNumber === oldRound + 1
+  );
+
+  assert(
+    "The round-ending action is recorded",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+
+  assert(
+    "The computer's remaining cards score 30 points",
+    computer.score === 30
+  );
+
+  assert(
+    "Players receive new hands for the next round",
+    game.players.every(p => p.hand.length === 10)
+  );
+}
+
+function testGameVictory() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  ron.phase = 10;
+  ron.hand = [
+    { id: "last", type: "number", number: 5, color: "red" }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", number: 2, color: "blue" },
+    { id: "left2", type: "wild", number: null, color: null }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  Engine.discardCard(game, "ron", "last");
+  renderGame(game, "Game-victory test");
+
+  assert("Game status becomes finished", game.status === "finished");
+  assert("Ron is declared the winner", game.winnerId === "ron");
+  assert(
+    "Final action records Ron's victory",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+  assert(
+    "No new round starts",
+    game.roundNumber === oldRound && ron.hand.length === 0
+  );
+  assert("Computer's remaining cards are scored", computer.score === 30);
+}
+
+window.testGameVictory = testGameVictory;
+window.runTests = runTests;
+window.dealSample = dealSample;
+window.testTurn = testTurn;
+window.testPhase1 = testPhase1;
+window.testLayDownPhase1 = testLayDownPhase1;
+window.testHitOnTable = testHitOnTable;
+window.testEndRound = testEndRound;
+
+out.textContent =
+  "Engine module loaded. Choose a test button to begin.";
+</script>
+</body>
+</html>
