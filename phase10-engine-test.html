@@ -56,6 +56,7 @@ Keep phase10-engine.js in the same folder as this HTML file.
   <button onclick="runTests()">Run all tests</button>
   <button onclick="testLayDownPhase1()">Test laying down Phase 1</button>
   <button onclick="testHitOnTable()">Test hitting on a phase</button>
+  <button onclick="testEndRound()">Test ending a round</button>
   <button onclick="dealSample()">Deal a sample game</button>
   <button onclick="testTurn()">Test a turn</button>
   <button onclick="testPhase1()">Test Phase 1</button>
@@ -448,12 +449,64 @@ function testHitOnTable() {
   );
 }
 
+
+function testEndRound() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Set up a controlled end-of-round situation.
+  ron.hand = [
+    { id: "last", type: "number", color: "red", number: 5 }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", color: "blue", number: 2 },
+    { id: "left2", type: "wild" }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  // Ron discards his last card.
+  Engine.discardCard(game, "ron", "last");
+
+  assert(
+    "The round advances",
+    game.roundNumber === oldRound + 1
+  );
+
+  assert(
+    "The round-ending action is recorded",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+
+  assert(
+    "The computer's remaining cards score 30 points",
+    computer.score === 30
+  );
+
+  assert(
+    "Players receive new hands for the next round",
+    game.players.every(p => p.hand.length === 10)
+  );
+}
+
 window.runTests = runTests;
 window.dealSample = dealSample;
 window.testTurn = testTurn;
 window.testPhase1 = testPhase1;
 window.testLayDownPhase1 = testLayDownPhase1;
 window.testHitOnTable = testHitOnTable;
+window.testEndRound = testEndRound;8
 
 out.textContent =
   "Engine module loaded. Choose a test button to begin.";
