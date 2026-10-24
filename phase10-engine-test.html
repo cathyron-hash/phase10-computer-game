@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 Engine Tests</title>
+<title>Phase 10 Game Lab</title>
 
 <style>
 body {
   font: 17px system-ui, -apple-system, sans-serif;
-  max-width: 850px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 20px;
   background: #f5f6f8;
@@ -41,11 +41,34 @@ button {
 .pass { color: #167443; }
 .fail { color: #b42318; }
 .note { color: #555; font-size: .94rem; }
+
+#gameView { margin: 18px 0; }
+.board { background: #176b4d; color: white; border-radius: 18px; padding: 16px; box-shadow: 0 5px 18px #0002; }
+.boardTop { display:flex; gap:16px; align-items:stretch; flex-wrap:wrap; }
+.pile { min-width:100px; text-align:center; padding:8px; background:#ffffff18; border-radius:12px; }
+.pileCards { display:flex; justify-content:center; margin:8px 0; }
+.playerPanel { margin-top:14px; padding:12px; border-radius:12px; background:#ffffff18; }
+.playerHeading { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-weight:700; }
+.hand { display:flex; gap:7px; overflow-x:auto; padding:12px 2px 8px; min-height:105px; align-items:flex-start; }
+.card { flex:0 0 58px; width:58px; height:84px; border:2px solid white; border-radius:8px; background:#fff; color:#222; box-shadow:0 2px 5px #0003; display:flex; flex-direction:column; justify-content:space-between; padding:5px; box-sizing:border-box; font-weight:800; }
+.card .corner { font-size:11px; line-height:1; }
+.card .face { text-align:center; font-size:27px; line-height:1; align-self:center; }
+.card.red { color:#c62828; } .card.blue { color:#1769aa; } .card.green { color:#18804b; } .card.yellow { color:#b27a00; }
+.card.wild { color:#6a35a5; background:linear-gradient(135deg,#fff 0 22%,#f0e5ff 22% 42%,#fff 42% 62%,#e4f7ff 62%); }
+.card.skip { color:#333; background:#ffe8b3; }
+.card.back { background:repeating-linear-gradient(45deg,#183d83,#183d83 7px,#2d61b8 7px,#2d61b8 14px); border-color:#fff; }
+.tableau { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+.group { padding:8px; border-radius:10px; background:#0002; min-width:90px; }
+.groupCards { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+.group .card { width:43px; height:63px; flex-basis:43px; padding:3px; }
+.group .card .face { font-size:20px; }
+.muted { opacity:.85; font-size:.9rem; }
+@media (max-width:600px) { body { padding:10px; } .card { flex-basis:52px; width:52px; } .board { padding:10px; } }
 </style>
 </head>
 
 <body>
-<h1>Phase 10 Engine Test Page</h1>
+<h1>Phase 10 Game Lab</h1>
 
 <p>
 This page tests the Phase 10 JavaScript engine.
@@ -77,6 +100,54 @@ full game interface are not implemented by this test page.
 import * as Engine from "./phase10-engine.js";
 
 const out = document.getElementById("results");
+const gameView = document.getElementById("gameView");
+
+function cardMarkup(card, back = false) {
+  if (back) return '<div class="card back" aria-label="Face-down card"></div>';
+  if (!card) return '<div class="card">?</div>';
+  const type = String(card.type || "number").toLowerCase();
+  const color = String(card.color || "").toLowerCase();
+  let face = type === "wild" ? "★" : type === "skip" ? "⊘" : (card.number ?? "?");
+  let label = type === "wild" ? "Wild" : type === "skip" ? "Skip" : `${color || "number"} ${face}`;
+  return `<div class="card ${type === "number" ? color : type}" aria-label="${label}">
+    <span class="corner">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
+    <span class="face">${face}</span><span class="corner" style="text-align:right">${type === "wild" ? "WILD" : type === "skip" ? "SKIP" : face}</span>
+  </div>`;
+}
+
+function renderGame(game, caption = "Board snapshot") {
+  if (!game) return;
+  const current = game.players?.[game.currentPlayerIndex];
+  const discard = game.discardPile || [];
+  const topDiscard = discard.length ? discard[discard.length - 1] : null;
+  const pileCount = (game.drawPile || []).length;
+  let html = `<div class="board"><div class="boardTop">
+    <div><strong>${caption}</strong><div class="muted">${game.status === "finished" ? "Game finished" : `Round ${game.roundNumber ?? 1} · ${current ? current.name + "'s turn" : "Turn not set"} · ${game.turnStage || ""}`}</div></div>
+    <div class="pile"><strong>Draw pile</strong><div class="pileCards">${cardMarkup(null, true)}</div><div>${pileCount} cards</div></div>
+    <div class="pile"><strong>Discard pile</strong><div class="pileCards">${topDiscard ? cardMarkup(topDiscard) : '<span>Empty</span>'}</div><div>${discard.length} card${discard.length === 1 ? "" : "s"}</div></div>
+  </div>`;
+  for (const player of (game.players || [])) {
+    const active = current && player.id === current.id;
+    html += `<div class="playerPanel"><div class="playerHeading"><span>${player.name}${active ? " · TURN" : ""}</span><span>Phase ${player.phase ?? 1} · Score ${player.score ?? 0} · ${player.hand?.length ?? 0} cards</span></div>`;
+    if (player.hand?.length) html += `<div class="hand">${player.hand.map(c => cardMarkup(c)).join("")}</div>`;
+    else html += `<div class="muted">No cards in hand</div>`;
+    if (player.tableau?.length) {
+      html += '<div class="muted">Cards laid down</div><div class="tableau">';
+      player.tableau.forEach((group, i) => {
+        const cards = group.cards || [];
+        html += `<div class="group"><strong>${group.type || "Group"} ${i + 1}</strong><div class="groupCards">${cards.map(c => cardMarkup(c)).join("")}</div></div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  if (game.winnerId) {
+    const winner = game.players.find(p => p.id === game.winnerId);
+    html += `<h2>${winner ? winner.name : "A player"} wins!</h2>`;
+  }
+  html += '</div>';
+  gameView.innerHTML = html;
+}
 
 function log(message, cls = "") {
   const line = document.createElement("div");
@@ -380,6 +451,7 @@ function testLayDownPhase1() {
     "ron",
     phaseCards.map(card => card.id)
   );
+  renderGame(game, "Phase 1 lay-down test");
 
   assert(
     "Phase 1 is marked as laid down",
@@ -431,6 +503,7 @@ function testHitOnTable() {
   game.turnStage = "action";
 
   Engine.hitOnTable(game, "ron", "computer", 0, "ron5");
+  renderGame(game, "Hit-on-table test");
 
   assert(
     "Ron can add a matching card to the computer's set",
@@ -478,6 +551,7 @@ function testEndRound() {
 
   // Ron discards his last card.
   Engine.discardCard(game, "ron", "last");
+  renderGame(game, "Round-ending test");
 
   assert(
     "The round advances",
@@ -528,6 +602,7 @@ function testGameVictory() {
   const oldRound = game.roundNumber;
 
   Engine.discardCard(game, "ron", "last");
+  renderGame(game, "Game-victory test");
 
   assert("Game status becomes finished", game.status === "finished");
   assert("Ron is declared the winner", game.winnerId === "ron");
@@ -550,7 +625,7 @@ window.testTurn = testTurn;
 window.testPhase1 = testPhase1;
 window.testLayDownPhase1 = testLayDownPhase1;
 window.testHitOnTable = testHitOnTable;
-window.testEndRound = testEndRound;8
+window.testEndRound = testEndRound;
 
 out.textContent =
   "Engine module loaded. Choose a test button to begin.";
