@@ -87,10 +87,11 @@ button.secondary { background:#626b78; }
   </div>
   <div class="game-controls">
     <button id="new-game" type="button">New game</button>
+    <button id="lay-down-phase" type="button" disabled>Lay down my phase</button>
     <button id="discard-selected" type="button" disabled>Discard selected card</button>
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
   </div>
-  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. On your turn, draw from either pile, tap a card in your hand to select it, then discard it. The computer will take its turn automatically.</p>
+  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. The computer takes its turn automatically.</p>
   <h3>Your hand</h3>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
@@ -119,7 +120,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. The computer now chooses a pile, draws, and discards using a simple card-keeping heuristic. Phase lay-downs and full Phase 10 strategy are not automated yet.
+Diagnostics exercise the rules engine. During a game, tap to select multiple cards and choose “Lay down my phase”; select exactly one card to discard. The computer currently draws and discards using a simple card-keeping heuristic; computer phase lay-downs are not automated yet.
 </p>
 
 <script type="module">
@@ -133,10 +134,12 @@ const humanHand = document.getElementById("human-hand");
 const drawPileButton = document.getElementById("draw-pile");
 const discardPileButton = document.getElementById("discard-pile");
 const discardSelectedButton = document.getElementById("discard-selected");
+const layDownPhaseButton = document.getElementById("lay-down-phase");
 const clearSelectionButton = document.getElementById("clear-selection");
 const newGameButton = document.getElementById("new-game");
 let playableGame = null;
 let selectedCardId = null;
+const selectedPhaseCardIds = new Set();
 const humanId = "ron";
 const computerId = "computer";
 
@@ -149,8 +152,9 @@ function playableCardElement(card, selectable = false) {
   if (selectable) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = el.className + (card.id === selectedCardId ? " selected" : "");
-    button.setAttribute("aria-pressed", String(card.id === selectedCardId));
+    const isSelected = selectedPhaseCardIds.has(card.id);
+    button.className = el.className + (isSelected ? " selected" : "");
+    button.setAttribute("aria-pressed", String(isSelected));
     button.setAttribute("aria-label", `${cardLabel(card)} ${card.color || card.type}`);
     const value = document.createElement("div");
     value.className = "card-value";
@@ -161,7 +165,9 @@ function playableCardElement(card, selectable = false) {
     button.append(value, suit);
     button.addEventListener("click", () => {
       if (!playableGame || currentPlayablePlayer()?.id !== humanId || playableGame.turnStage !== "action") return;
-      selectedCardId = selectedCardId === card.id ? null : card.id;
+      if (selectedPhaseCardIds.has(card.id)) selectedPhaseCardIds.delete(card.id);
+      else selectedPhaseCardIds.add(card.id);
+      selectedCardId = selectedPhaseCardIds.size === 1 ? [...selectedPhaseCardIds][0] : null;
       renderPlayableGame();
     });
     return button;
@@ -174,7 +180,7 @@ function renderPlayableGame() {
   const player = playableGame.players.find(p => p.id === humanId);
   const current = currentPlayablePlayer();
   const isHumanTurn = current?.id === humanId && playableGame.status === "playing";
-  playStatus.textContent = `Round ${playableGame.roundNumber} · ${playableGame.status === "finished" ? "Game finished" : `${current?.name || "—"}’s turn`} · ${playableGame.turnStage === "draw" ? "Draw a card" : "Choose a card to discard"} · Phase ${player.phase} · Score ${player.score}`;
+  playStatus.textContent = `Round ${playableGame.roundNumber} · ${playableGame.status === "finished" ? "Game finished" : `${current?.name || "—"}’s turn`} · ${playableGame.turnStage === "draw" ? "Draw a card" : "Select cards to lay down a phase or discard one card"} · Phase ${player.phase} · Score ${player.score}${player.laidPhase ? " · Phase laid down" : ""}`;
   humanHand.replaceChildren();
   player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
   if (!player.hand.length) humanHand.textContent = "No cards in hand.";
@@ -186,8 +192,9 @@ function renderPlayableGame() {
   else discardTop.textContent = "Empty";
   drawPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw";
   discardPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw" || !top;
-  discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || !selectedCardId;
-  clearSelectionButton.disabled = !selectedCardId;
+  discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
+  layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0;
+  clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
   document.getElementById("opponent-strip").textContent = `Computer: ${playableGame.players.find(p => p.id === computerId).hand.length} cards · Phase ${playableGame.players.find(p => p.id === computerId).phase} · Score ${playableGame.players.find(p => p.id === computerId).score}`;
 }
 
@@ -197,7 +204,8 @@ function startPlayableGame() {
     { id: computerId, name: "Computer", kind: "computer" }
   ]);
   selectedCardId = null;
-  playMessage.textContent = "Your turn. Tap the draw pile or the top discard to take a card.";
+  selectedPhaseCardIds.clear();
+  playMessage.textContent = "Your turn. Draw a card, then select the cards for your phase and tap Lay down my phase. Or select one card and discard it.";
   renderPlayableGame();
 }
 
@@ -206,7 +214,8 @@ function drawPlayableCard(source) {
   try {
     const drawn = Engine.drawCard(playableGame, humanId, source);
     selectedCardId = null;
-    playMessage.textContent = `You drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}. Tap one card in your hand to select it, then discard it.`;
+    selectedPhaseCardIds.clear();
+    playMessage.textContent = `You drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}. Select the cards for Phase ${playableGame.players.find(p => p.id === humanId).phase} and tap Lay down my phase, or select one card to discard.`;
     renderPlayableGame();
   } catch (error) {
     playMessage.textContent = error.message;
@@ -265,15 +274,32 @@ function computerTurn() {
     playMessage.textContent = `Computer turn stopped: ${error.message}`;
   }
   selectedCardId = null;
+  selectedPhaseCardIds.clear();
   renderPlayableGame();
 }
 
+function layDownHumanPhase() {
+  if (!playableGame || selectedPhaseCardIds.size === 0) return;
+  try {
+    const ids = [...selectedPhaseCardIds];
+    Engine.layDownPhase(playableGame, humanId, ids);
+    selectedPhaseCardIds.clear();
+    selectedCardId = null;
+    const player = playableGame.players.find(p => p.id === humanId);
+    playMessage.textContent = `Great! You laid down Phase ${player.phase}. Select one remaining card to discard and finish your turn.`;
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
 function discardPlayableCard() {
-  if (!playableGame || !selectedCardId) return;
+  if (!playableGame || selectedPhaseCardIds.size !== 1 || !selectedCardId) return;
   try {
     const discarded = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === selectedCardId);
     Engine.discardCard(playableGame, humanId, selectedCardId);
     selectedCardId = null;
+    selectedPhaseCardIds.clear();
     if (playableGame.status === "finished") {
       playMessage.textContent = `${playableGame.players.find(p => p.id === playableGame.winnerId)?.name || "A player"} wins the game!`;
     } else {
@@ -292,7 +318,8 @@ newGameButton.addEventListener("click", startPlayableGame);
 drawPileButton.addEventListener("click", () => drawPlayableCard("draw"));
 discardPileButton.addEventListener("click", () => drawPlayableCard("discard"));
 discardSelectedButton.addEventListener("click", discardPlayableCard);
-clearSelectionButton.addEventListener("click", () => { selectedCardId = null; renderPlayableGame(); });
+layDownPhaseButton.addEventListener("click", layDownHumanPhase);
+clearSelectionButton.addEventListener("click", () => { selectedCardId = null; selectedPhaseCardIds.clear(); renderPlayableGame(); });
 
 
 function log(message, cls = "") {
