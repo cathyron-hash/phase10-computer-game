@@ -57,6 +57,7 @@ Keep phase10-engine.js in the same folder as this HTML file.
   <button onclick="testLayDownPhase1()">Test laying down Phase 1</button>
   <button onclick="testHitOnTable()">Test hitting on a phase</button>
   <button onclick="testEndRound()">Test ending a round</button>
+  <button onclick="testGameVictory()">Test game victory</button>  
   <button onclick="dealSample()">Deal a sample game</button>
   <button onclick="testTurn()">Test a turn</button>
   <button onclick="testPhase1()">Test Phase 1</button>
@@ -500,6 +501,49 @@ function testEndRound() {
   );
 }
 
+function testGameVictory() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  ron.phase = 10;
+  ron.hand = [
+    { id: "last", type: "number", number: 5, color: "red" }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", number: 2, color: "blue" },
+    { id: "left2", type: "wild", number: null, color: null }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  Engine.discardCard(game, "ron", "last");
+
+  assert("Game status becomes finished", game.status === "finished");
+  assert("Ron is declared the winner", game.winnerId === "ron");
+  assert(
+    "Final action records Ron's victory",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+  assert(
+    "No new round starts",
+    game.roundNumber === oldRound && ron.hand.length === 0
+  );
+  assert("Computer's remaining cards are scored", computer.score === 30);
+}
+
+window.testGameVictory = testGameVictory;
 window.runTests = runTests;
 window.dealSample = dealSample;
 window.testTurn = testTurn;
