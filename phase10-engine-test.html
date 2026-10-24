@@ -349,10 +349,57 @@ function testPhase1() {
   );
 }
 
+function testLayDownPhase1() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  // Give Ron a known Phase 1: two sets of three.
+  const phaseCards = [
+    { id: "a", type: "number", color: "red", number: 5 },
+    { id: "b", type: "number", color: "blue", number: 5 },
+    { id: "c", type: "number", color: "green", number: 5 },
+    { id: "d", type: "number", color: "red", number: 9 },
+    { id: "e", type: "number", color: "blue", number: 9 },
+    { id: "f", type: "number", color: "yellow", number: 9 }
+  ];
+
+  game.players[0].hand = [...phaseCards];
+  game.currentPlayerIndex = 0;
+  game.turnStage = "action";
+
+  Engine.layDownPhase(
+    game,
+    "ron",
+    phaseCards.map(card => card.id)
+  );
+
+  assert(
+    "Phase 1 is marked as laid down",
+    game.players[0].laidPhase === true
+  );
+
+  assert(
+    "Six phase cards are removed from the hand",
+    game.players[0].hand.length === 0
+  );
+
+  assert(
+    "Two sets are placed on the table",
+    game.players[0].tableau.length === 2
+  );
+
+  out.textContent += "\nPhase 1 lay-down test completed.";
+}
+  
 window.runTests = runTests;
 window.dealSample = dealSample;
 window.testTurn = testTurn;
 window.testPhase1 = testPhase1;
+window.testLayDownPhase1 = testLayDownPhase1;
 
 out.textContent =
   "Engine module loaded. Choose a test button to begin.";
