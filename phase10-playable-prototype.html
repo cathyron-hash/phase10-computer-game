@@ -56,7 +56,10 @@ button {
 .card-green { color:#218443; border-color:#a9d8b6; }
 .card-yellow { color:#8a6a00; border-color:#e6d48b; }
 .card-special { color:#6534a5; border-color:#cbb8e8; }
-.tableau-group { border:1px dashed #b7bec8; border-radius:9px; padding:8px; margin:3px 8px 3px 0; }
+.tableau-group { border:1px dashed #b7bec8; border-radius:9px; padding:8px; margin:3px 8px 3px 0; min-width:150px; }
+.tableau-player { border-top:1px solid #d9dee5; margin-top:12px; padding-top:10px; }
+.hit-button { margin-top:8px; width:100%; padding:8px; font-size:.88rem; }
+.hit-button:disabled { opacity:.45; }
 .tableau-label { font-size:.8rem; color:#555; margin-bottom:6px; }
 .small-note { color:#666; font-size:.9rem; }
 .playing-card { flex:0 0 58px; width:58px; min-height:82px; cursor:pointer; touch-action:manipulation; }
@@ -97,6 +100,9 @@ button.secondary { background:#626b78; }
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
   <h3>Computer’s hand (testing view)</h3>
   <div id="computer-hand" class="hand" aria-label="Computer hand shown for testing"></div>
+  <h3>Phases laid down</h3>
+  <p class="small-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits.</p>
+  <div id="laid-phases"><p class="small-note">No phases laid down yet.</p></div>
 </section>
 
 <h2>Engine diagnostics</h2>
@@ -122,7 +128,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. Testing view shows the computer’s hand. During a game, tap to select multiple cards and choose “Lay down my phase”; select exactly one card to discard. The computer automatically checks for a valid phase after drawing, lays it down when possible, then discards.
+Diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer automatically checks for a valid phase after drawing, lays it down when possible, then discards.
 </p>
 
 <script type="module">
@@ -134,6 +140,7 @@ const playStatus = document.getElementById("game-status");
 const playMessage = document.getElementById("game-message");
 const humanHand = document.getElementById("human-hand");
 const computerHand = document.getElementById("computer-hand");
+const laidPhases = document.getElementById("laid-phases");
 const drawPileButton = document.getElementById("draw-pile");
 const discardPileButton = document.getElementById("discard-pile");
 const discardSelectedButton = document.getElementById("discard-selected");
@@ -191,6 +198,47 @@ function renderPlayableGame() {
   computerHand.replaceChildren();
   computer.hand.forEach(card => computerHand.appendChild(cardElement(card)));
   if (!computer.hand.length) computerHand.textContent = "No cards in hand.";
+
+  // Show each player's laid-down phase groups and provide a direct hit action.
+  laidPhases.replaceChildren();
+  const playersWithPhases = playableGame.players.filter(p => p.laidPhase && p.tableau?.length);
+  if (!playersWithPhases.length) {
+    const empty = document.createElement("p");
+    empty.className = "small-note";
+    empty.textContent = "No phases laid down yet.";
+    laidPhases.appendChild(empty);
+  } else {
+    playersWithPhases.forEach(targetPlayer => {
+      const playerSection = document.createElement("div");
+      playerSection.className = "tableau-player";
+      const heading = document.createElement("h4");
+      heading.textContent = `${targetPlayer.name}'s Phase ${targetPlayer.phase}`;
+      playerSection.appendChild(heading);
+      const groups = document.createElement("div");
+      groups.className = "tableau";
+      targetPlayer.tableau.forEach((group, groupIndex) => {
+        const groupBox = document.createElement("div");
+        groupBox.className = "tableau-group";
+        const label = document.createElement("div");
+        label.className = "tableau-label";
+        label.textContent = `${group.type === "set" ? "Set" : group.type === "run" ? "Run" : "Color group"} · ${group.cards.length} cards`;
+        const cards = document.createElement("div");
+        cards.className = "hand";
+        renderCards(cards, group.cards || []);
+        const hitButton = document.createElement("button");
+        hitButton.type = "button";
+        hitButton.className = "hit-button";
+        hitButton.textContent = "Hit with selected card";
+        hitButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || !player.laidPhase || selectedPhaseCardIds.size !== 1;
+        hitButton.addEventListener("click", () => hitHumanCard(targetPlayer.id, groupIndex));
+        groupBox.append(label, cards, hitButton);
+        groups.appendChild(groupBox);
+      });
+      playerSection.appendChild(groups);
+      laidPhases.appendChild(playerSection);
+    });
+  }
+
   document.getElementById("draw-count").textContent = `${playableGame.drawPile.length} cards`;
   const top = playableGame.discardPile.at(-1);
   const discardTop = document.getElementById("discard-top");
@@ -324,6 +372,22 @@ function layDownHumanPhase() {
     selectedCardId = null;
     const player = playableGame.players.find(p => p.id === humanId);
     playMessage.textContent = `Great! You laid down Phase ${player.phase}. Select one remaining card to discard and finish your turn.`;
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+function hitHumanCard(targetPlayerId, targetGroupIndex) {
+  if (!playableGame || selectedPhaseCardIds.size !== 1) return;
+  const cardId = [...selectedPhaseCardIds][0];
+  try {
+    const card = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === cardId);
+    const target = playableGame.players.find(p => p.id === targetPlayerId);
+    Engine.hitOnTable(playableGame, humanId, targetPlayerId, targetGroupIndex, cardId);
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    playMessage.textContent = `You hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase. Select another card to hit again or discard one card to finish your turn.`;
     renderPlayableGame();
   } catch (error) {
     playMessage.textContent = error.message;
