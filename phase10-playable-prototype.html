@@ -184,6 +184,7 @@ function logActivity(message) {
   const item = document.createElement("li");
   item.textContent = message;
   item.dataset.sequence = String(++activitySequence);
+  item.value = activitySequence; // Keep chronological numbering even though newest events appear first.
   activityList.prepend(item);
 }
 
