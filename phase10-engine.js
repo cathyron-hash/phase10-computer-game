@@ -90,7 +90,7 @@ function combinations(items, count) {
 }
 
 function isValidSet(cards, count) {
-  if (cards.length !== count) return false;
+  if (cards.length < count) return false;
   const numbered = cards.filter((c) => c.type === "number");
   if (cards.some((c) => c.type === "skip")) return false;
   if (!numbered.length) return cards.every((c) => c.type === "wild");
@@ -98,19 +98,37 @@ function isValidSet(cards, count) {
 }
 
 function isValidRun(cards, count) {
-  if (cards.length !== count || cards.some((c) => c.type === "skip")) return false;
-  // Duplicate physical cards cannot occupy the same run position.
+  const length = cards.length;
+  if (length < count || length > 12 || cards.some((c) => c.type === "skip")) return false;
+  // Duplicate natural numbers cannot occupy the same position in a run.
   const numbered = cards.filter((c) => c.type === "number");
   const wildCount = cards.filter((c) => c.type === "wild").length;
-  if (numbered.length + wildCount !== count) return false;
-
-  // A run can be represented by an interval of 1..12. Every natural number
-  // must occupy a unique position; Wilds fill the remaining positions.
+  if (numbered.length + wildCount !== length) return false;
   const values = numbered.map((c) => c.number);
   if (new Set(values).size !== values.length) return false;
 
-  for (let start = 1; start <= 13 - count; start++) {
-    const allowed = new Set(Array.from({ length: count }, (_, i) => start + i));
+  // All natural cards must fit in one consecutive interval; Wilds fill gaps.
+  for (let start = 1; start <= 13 - length; start++) {
+    const allowed = new Set(Array.from({ length }, (_, i) => start + i));
+    if (values.every((n) => allowed.has(n))) return true;
+  }
+  return false;
+}
+
+function isValidRunHit(existingCards, addedCard) {
+  const all = [...existingCards, addedCard];
+  const length = all.length;
+  if (length > 12 || all.some((c) => c.type === "skip")) return false;
+  const numbered = all.filter((c) => c.type === "number");
+  const values = numbered.map((c) => c.number);
+  if (new Set(values).size !== values.length) return false;
+  // A hit must extend one end of the run. A Wild already on the table cannot
+  // be replaced by filling the number it represents in the middle of the run.
+  for (let start = 1; start <= 13 - length; start++) {
+    const end = start + length - 1;
+    const addedIsEndpoint = addedCard.type === "wild" || addedCard.number === start || addedCard.number === end;
+    if (!addedIsEndpoint) continue;
+    const allowed = new Set(Array.from({ length }, (_, i) => start + i));
     if (values.every((n) => allowed.has(n))) return true;
   }
   return false;
@@ -133,8 +151,8 @@ export function validatePhase(cards, phaseNumber) {
   if (!phase) throw new Phase10Error("Phase number must be between 1 and 10.");
 
   const expected = phase.reduce((sum, part) => sum + part.count, 0);
-  if (cards.length !== expected) {
-    throw new Phase10Error(`Phase ${phaseNumber} requires exactly ${expected} cards.`);
+  if (cards.length < expected) {
+    throw new Phase10Error(`Phase ${phaseNumber} requires at least ${expected} cards.`);
   }
   if (new Set(cards.map((c) => c.id)).size !== cards.length) {
     throw new Phase10Error("A card cannot be used more than once.");
@@ -143,17 +161,23 @@ export function validatePhase(cards, phaseNumber) {
   const assign = (partIndex, remaining, groups) => {
     if (partIndex === phase.length) return remaining.length === 0 ? groups : null;
     const part = phase[partIndex];
-    for (const group of combinations(remaining, part.count)) {
-      let valid = false;
-      if (part.type === "set") valid = isValidSet(group, part.count);
-      if (part.type === "run") valid = isValidRun(group, part.count);
-      if (part.type === "color") valid = isValidColor(group, part.count);
-      if (!valid) continue;
+    const sizes = part.type === "color"
+      ? [part.count]
+      : Array.from({ length: Math.max(0, remaining.length - part.count + 1) }, (_, i) => part.count + i);
+    for (const size of sizes) {
+      if (size > remaining.length) continue;
+      for (const group of combinations(remaining, size)) {
+        let valid = false;
+        if (part.type === "set") valid = isValidSet(group, part.count);
+        if (part.type === "run") valid = isValidRun(group, part.count);
+        if (part.type === "color") valid = isValidColor(group, part.count);
+        if (!valid) continue;
 
       const used = new Set(group.map((c) => c.id));
       const rest = remaining.filter((c) => !used.has(c.id));
-      const result = assign(partIndex + 1, rest, [...groups, group]);
-      if (result) return result;
+        const result = assign(partIndex + 1, rest, [...groups, group]);
+        if (result) return result;
+      }
     }
     return null;
   };
@@ -326,8 +350,8 @@ export function hitOnTable(state, playerId, targetPlayerId, targetGroupIndex, ca
   const originalType = targetGroup.type;
   const requiredCount = group.length + 1;
   let valid = false;
-  if (originalType === "set") valid = isValidSet(expanded, requiredCount);
-  if (originalType === "run") valid = isValidRun(expanded, requiredCount);
+  if (originalType === "set") valid = isValidSet(expanded, group.length);
+  if (originalType === "run") valid = isValidRunHit(group, card);
   if (originalType === "color") valid = isValidColor(expanded, requiredCount);
   if (!valid) throw new Phase10Error("That card cannot be added to this group.");
 

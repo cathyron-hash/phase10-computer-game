@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 — Playable Turn Prototype</title>
+<title>Phase 10 Game — V14</title>
 
 <style>
 body {
@@ -78,8 +78,8 @@ button.secondary { background:#626b78; }
 </head>
 
 <body>
-<h1>Phase 10</h1>
-<p>Playable turn prototype · Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
+<h1>Phase 10 Game — V14</h1>
+<p>V14 · Current phase labels, extended sets and runs, and automatic computer hitting. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
 
 <section class="board-panel shared-panel" id="play-area">
   <h2>Game table</h2>
@@ -95,6 +95,8 @@ button.secondary { background:#626b78; }
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
   </div>
   <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. The computer takes its turn automatically.</p>
+  <h3>Your current phase</h3>
+  <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
   <h3>Your hand</h3>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
@@ -128,7 +130,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer automatically checks for a valid phase after drawing, lays it down when possible, then discards.
+Diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer checks for a valid phase after drawing, lays it down when possible, hits on every legal table group while keeping one card to discard, then discards.
 </p>
 
 <script type="module">
@@ -155,6 +157,17 @@ const computerId = "computer";
 
 function currentPlayablePlayer() {
   return playableGame?.players[playableGame.currentPlayerIndex] ?? null;
+}
+
+function phaseDescription(phaseNumber) {
+  const parts = Engine.PHASES[phaseNumber - 1] || [];
+  const labels = parts.map(part => {
+    if (part.type === "set") return `set of ${part.count}`;
+    if (part.type === "run") return `run of ${part.count}`;
+    return `${part.count} cards of one color`;
+  });
+  const phrase = labels.length === 2 ? `${labels[0]} and ${labels[1]}` : (labels[0] || "unknown phase");
+  return `Phase ${phaseNumber} — ${phrase}`;
 }
 
 function playableCardElement(card, selectable = false) {
@@ -195,6 +208,7 @@ function renderPlayableGame() {
   player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
   if (!player.hand.length) humanHand.textContent = "No cards in hand.";
   const computer = playableGame.players.find(p => p.id === computerId);
+  document.getElementById("human-phase-label").textContent = `You: ${phaseDescription(player.phase)}${player.laidPhase ? " · laid down" : ""}`;
   computerHand.replaceChildren();
   computer.hand.forEach(card => computerHand.appendChild(cardElement(card)));
   if (!computer.hand.length) computerHand.textContent = "No cards in hand.";
@@ -250,7 +264,7 @@ function renderPlayableGame() {
   discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
   layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0;
   clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
-  document.getElementById("opponent-strip").textContent = `Computer: ${computer.hand.length} cards · Phase ${computer.phase} · Score ${computer.score}${computer.laidPhase ? " · Phase laid down" : ""}`;
+  document.getElementById("opponent-strip").textContent = `Computer: ${computer.hand.length} cards · ${phaseDescription(computer.phase)} · Score ${computer.score}${computer.laidPhase ? " · laid down" : ""}`;
 }
 
 function startPlayableGame() {
@@ -295,24 +309,53 @@ function cardKeepValue(card, hand) {
 function findComputerPhaseCards(hand, phaseNumber) {
   const expected = (Engine.PHASES[phaseNumber - 1] || []).reduce((sum, part) => sum + part.count, 0);
   if (!expected || hand.length < expected) return null;
-  const search = (start, chosen) => {
-    if (chosen.length === expected) {
+  const choose = (start, needed, chosen) => {
+    if (chosen.length === needed) {
       try {
         Engine.validatePhase(chosen, phaseNumber);
         return chosen.map(card => card.id);
-      } catch (_) {
-        return null;
-      }
+      } catch (_) { return null; }
     }
-    for (let i = start; i <= hand.length - (expected - chosen.length); i++) {
+    for (let i = start; i <= hand.length - (needed - chosen.length); i++) {
       chosen.push(hand[i]);
-      const result = search(i + 1, chosen);
+      const result = choose(i + 1, needed, chosen);
       chosen.pop();
       if (result) return result;
     }
     return null;
   };
-  return search(0, []);
+  // Prefer laying down more cards when a legal extended set/run is available.
+  for (let size = hand.length; size >= expected; size--) {
+    const result = choose(0, size, []);
+    if (result) return result;
+  }
+  return null;
+}
+
+function computerHitAllPossible() {
+  const computer = playableGame.players.find(p => p.id === computerId);
+  if (!computer.laidPhase || computer.hand.length <= 1) return [];
+  const actions = [];
+  let changed = true;
+  while (changed && computer.hand.length > 1) {
+    changed = false;
+    for (const target of playableGame.players) {
+      if (!target.laidPhase || !target.tableau) continue;
+      for (let groupIndex = 0; groupIndex < target.tableau.length; groupIndex++) {
+        const group = target.tableau[groupIndex];
+        for (const card of [...computer.hand]) {
+          if (computer.hand.length <= 1) break;
+          try {
+            Engine.hitOnTable(playableGame, computerId, target.id, groupIndex, card.id);
+            actions.push(`${cardLabel(card)} on ${target.name}'s ${group.type}`);
+            changed = true;
+            break;
+          } catch (_) { /* This card does not fit this group. */ }
+        }
+      }
+    }
+  }
+  return actions;
 }
 
 function computerTurn() {
@@ -333,9 +376,11 @@ function computerTurn() {
       if (phaseIds) {
         const phaseNumber = computer.phase;
         Engine.layDownPhase(playableGame, computerId, phaseIds);
-        phaseMessage = ` and laid down Phase ${phaseNumber}`;
+        phaseMessage = ` and laid down ${phaseDescription(phaseNumber)}`;
       }
     }
+    const hits = computerHitAllPossible();
+    if (hits.length) phaseMessage += `, then hit ${hits.join(", ")}`;
     const handAfterDraw = computer.hand;
     const discard = handAfterDraw.reduce((worst, card) => {
       if (!worst) return card;
