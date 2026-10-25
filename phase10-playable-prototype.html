@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 Game — V15</title>
+<title>Phase 10 Game — V17</title>
 
 <style>
 body {
@@ -76,14 +76,21 @@ button.secondary { background:#626b78; }
 #human-hand [data-hand-card="true"].drag-over { outline:3px dashed #2457a7; transform:translateY(-4px); }
 #play-area { border-top:5px solid #2457a7; }
 @media (min-width:700px) { .playing-card { flex-basis:64px; width:64px; min-height:90px; } }
+#game-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(240px, 300px); gap:14px; align-items:start; margin:18px 0; }
+#activity-panel { position:sticky; top:12px; }
+#activity-list { margin:8px 0 0; padding-left:22px; max-height:70vh; overflow-y:auto; overscroll-behavior:contain; }
+#activity-list li { padding:7px 4px 8px 0; border-bottom:1px solid #e5e7eb; font-size:.9rem; line-height:1.35; overflow-wrap:anywhere; }
+#activity-list li:first-child { font-weight:600; }
+@media (max-width:800px) { #game-layout { grid-template-columns:1fr; } #activity-panel { position:static; } #activity-list { max-height:280px; } }
 @media (min-width:700px) { #board { grid-template-columns:1fr 1fr; } .shared-panel { grid-column:1 / -1; } }
 </style>
 </head>
 
 <body>
-<h1>Phase 10 Game — V15</h1>
-<p>V15 · Extended phase lay-downs, smarter computer discard choices, and drag-and-drop hand reordering. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
+<h1>Phase 10 Game — V17</h1>
+<p>V17 · Round scoring fix, visible computer Skip turns, and a scrollable reverse-chronology play history. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
 
+<div id="game-layout">
 <section class="board-panel shared-panel" id="play-area">
   <h2>Game table</h2>
   <div id="game-status" class="player-meta">Start a new game to deal the cards.</div>
@@ -111,6 +118,12 @@ button.secondary { background:#626b78; }
   <p class="small-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits.</p>
   <div id="laid-phases"><p class="small-note">No phases laid down yet.</p></div>
 </section>
+<aside class="board-panel" id="activity-panel" aria-label="Play history">
+  <h2>Play history</h2>
+  <p class="small-note">Newest plays appear at the top.</p>
+  <ol id="activity-list" aria-live="polite"><li class="small-note">Start a new game to begin the history.</li></ol>
+</aside>
+</div>
 
 <h2>Engine diagnostics</h2>
 <p class="note">The test buttons below are retained to help verify the underlying rules engine.</p>
@@ -159,8 +172,28 @@ let playableGame = null;
 let selectedCardId = null;
 const selectedPhaseCardIds = new Set();
 let draggedHandCardId = null;
+let activitySequence = 0;
+const activityList = document.getElementById("activity-list");
 const humanId = "ron";
 const computerId = "computer";
+
+function logActivity(message) {
+  if (!activityList) return;
+  const empty = activityList.querySelector(".small-note");
+  if (empty && activityList.children.length === 1) activityList.replaceChildren();
+  const item = document.createElement("li");
+  item.textContent = message;
+  item.dataset.sequence = String(++activitySequence);
+  activityList.prepend(item);
+}
+
+function logRoundScores() {
+  const action = playableGame?.lastAction;
+  if (action?.type !== "roundEnd" || !action.roundScores) return;
+  const scores = action.roundScores;
+  const finisher = playableGame.players.find(p => p.id === action.finisherId)?.name || "A player";
+  logActivity(`ROUND OVER — ${finisher} went out. Ron: +${scores[humanId] ?? 0} points; Computer: +${scores[computerId] ?? 0} points. Totals — Ron ${playableGame.players.find(p => p.id === humanId)?.score ?? 0}, Computer ${playableGame.players.find(p => p.id === computerId)?.score ?? 0}.`);
+}
 
 function currentPlayablePlayer() {
   return playableGame?.players[playableGame.currentPlayerIndex] ?? null;
@@ -322,6 +355,9 @@ function startPlayableGame() {
   ]);
   selectedCardId = null;
   selectedPhaseCardIds.clear();
+  activitySequence = 0;
+  activityList.replaceChildren();
+  logActivity("New game started. Ron goes first.");
   playMessage.textContent = "Your turn. Draw a card, then select the cards for your phase and tap Lay down my phase. Or select one card and discard it.";
   renderPlayableGame();
 }
@@ -330,6 +366,7 @@ function drawPlayableCard(source) {
   if (!playableGame) return;
   try {
     const drawn = Engine.drawCard(playableGame, humanId, source);
+    logActivity(`Ron drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the ${source === "draw" ? "draw" : "discard"} pile.`);
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     playMessage.textContent = `You drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}. Select the cards for Phase ${playableGame.players.find(p => p.id === humanId).phase} and tap Lay down my phase, or select one card to discard.`;
@@ -446,17 +483,19 @@ function computerTurn() {
     const discardIsImmediateHit = !!(top && computerCanHitWithCard(top, computerId));
     const source = top && (discardIsImmediateHit || topValue >= weakestExisting + 0.8) ? "discard" : "draw";
     const drawn = Engine.drawCard(playableGame, computerId, source);
+    logActivity(`Computer drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the ${source === "draw" ? "draw" : "discard"} pile.`);
     let phaseMessage = "";
     if (!computer.laidPhase) {
       const phaseIds = findComputerPhaseCards(computer.hand, computer.phase);
       if (phaseIds) {
         const phaseNumber = computer.phase;
         Engine.layDownPhase(playableGame, computerId, phaseIds);
+        logActivity(`Computer laid down ${phaseDescription(phaseNumber)}.`);
         phaseMessage = ` and laid down ${phaseDescription(phaseNumber)}`;
       }
     }
     const hits = computerHitAllPossible(discardIsImmediateHit ? drawn.id : null);
-    if (hits.length) phaseMessage += `, then hit ${hits.join(", ")}`;
+    if (hits.length) { phaseMessage += `, then hit ${hits.join(", ")}`; logActivity(`Computer hit ${hits.join("; ")}.`); }
     const handAfterDraw = computer.hand;
     const discard = handAfterDraw.reduce((worst, card) => {
       if (!worst) return card;
@@ -467,8 +506,14 @@ function computerTurn() {
       return worst;
     }, null);
     if (!discard) throw new Error("The computer couldn't choose a discard.");
-    if (discard.type === "skip") Engine.playSkip(playableGame, computerId, humanId, discard.id);
-    else Engine.discardCard(playableGame, computerId, discard.id);
+    if (discard.type === "skip") {
+      Engine.playSkip(playableGame, computerId, humanId, discard.id);
+      logActivity("Computer played a SKIP on Ron. Ron loses this turn; the computer will take another turn.");
+    } else {
+      Engine.discardCard(playableGame, computerId, discard.id);
+      logActivity(`Computer discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}.`);
+    }
+    logRoundScores();
     const sourceLabel = source === "discard"
       ? (discardIsImmediateHit ? "the discard pile (a legal hit)" : "the discard pile")
       : "the draw pile";
@@ -483,19 +528,22 @@ function computerTurn() {
     }
   } catch (error) {
     playMessage.textContent = `Computer turn stopped: ${error.message}`;
+    logActivity(`Computer turn error: ${error.message}`);
   }
   selectedCardId = null;
   selectedPhaseCardIds.clear();
   renderPlayableGame();
   // In a two-player game, if the computer plays a Skip it skips Ron and takes another turn.
-  if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) computerTurn();
+  if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) window.setTimeout(computerTurn, 900);
 }
 
 function layDownHumanPhase() {
   if (!playableGame || selectedPhaseCardIds.size === 0) return;
   try {
     const ids = [...selectedPhaseCardIds];
+    const phaseBefore = playableGame.players.find(p => p.id === humanId).phase;
     Engine.layDownPhase(playableGame, humanId, ids);
+    logActivity(`Ron laid down ${phaseDescription(phaseBefore)}.`);
     selectedPhaseCardIds.clear();
     selectedCardId = null;
     const player = playableGame.players.find(p => p.id === humanId);
@@ -513,6 +561,7 @@ function hitHumanCard(targetPlayerId, targetGroupIndex) {
     const card = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === cardId);
     const target = playableGame.players.find(p => p.id === targetPlayerId);
     Engine.hitOnTable(playableGame, humanId, targetPlayerId, targetGroupIndex, cardId);
+    logActivity(`Ron hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase.`);
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     playMessage.textContent = `You hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase. Select another card to hit again or discard one card to finish your turn.`;
@@ -533,6 +582,8 @@ function playHumanSkip() {
   }
   try {
     Engine.playSkip(playableGame, humanId, computerId, cardId);
+    logActivity("Ron played a SKIP on the computer. The computer loses this turn.");
+    logRoundScores();
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     if (playableGame.lastAction.type === "roundEnd") {
@@ -543,7 +594,7 @@ function playHumanSkip() {
     }
     playMessage.textContent = "You played a Skip card. The computer loses its next turn.";
     renderPlayableGame();
-    if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) computerTurn();
+    if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) window.setTimeout(computerTurn, 900);
   } catch (error) {
     playMessage.textContent = error.message;
   }
@@ -554,6 +605,8 @@ function discardPlayableCard() {
   try {
     const discarded = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === selectedCardId);
     Engine.discardCard(playableGame, humanId, selectedCardId);
+    logActivity(`Ron discarded ${cardLabel(discarded)}${discarded?.color ? " " + discarded.color : ""}.`);
+    logRoundScores();
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     if (playableGame.status === "finished") {
@@ -770,6 +823,40 @@ function runTests() {
   test("Deck has 4 skip cards", () =>
     Engine.createDeck().filter(c => c.type === "skip").length === 4
   );
+
+  test("Computer going out adds the user's leftover-card points", () => {
+    const game = Engine.createGame(players());
+    const ron = game.players.find(p => p.id === "ron");
+    const computer = game.players.find(p => p.id === "computer");
+    ron.hand = [
+      { id: "ron-a", type: "number", number: 2, color: "red" },
+      { id: "ron-b", type: "number", number: 10, color: "blue" },
+      { id: "ron-c", type: "skip" }
+    ];
+    computer.hand = [{ id: "computer-last", type: "number", number: 4, color: "green" }];
+    game.currentPlayerIndex = game.players.indexOf(computer);
+    game.turnStage = "action";
+    const previousRonScore = ron.score;
+    Engine.discardCard(game, "computer", "computer-last");
+    return game.lastAction.type === "roundEnd"
+      && game.lastAction.finisherId === "computer"
+      && game.lastAction.roundScores.ron === 30
+      && ron.score === previousRonScore + 30;
+  });
+
+  test("Computer going out with Skip still scores the user's hand", () => {
+    const game = Engine.createGame(players());
+    const ron = game.players.find(p => p.id === "ron");
+    const computer = game.players.find(p => p.id === "computer");
+    ron.hand = [{ id: "ron-wild", type: "wild" }];
+    computer.hand = [{ id: "computer-skip", type: "skip" }];
+    game.currentPlayerIndex = game.players.indexOf(computer);
+    game.turnStage = "action";
+    Engine.playSkip(game, "computer", "ron", "computer-skip");
+    return game.lastAction.type === "roundEnd"
+      && game.lastAction.roundScores.ron === 25
+      && ron.score === 25;
+  });
 
   test("Phase 1 accepts two sets of three", () =>
     validPhase([

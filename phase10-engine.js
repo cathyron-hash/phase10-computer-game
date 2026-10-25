@@ -460,9 +460,12 @@ export function playSkip(state, playerId, targetPlayerId, cardId) {
 }
 
 function finishRound(state, finisherId) {
+  // Snapshot each remaining hand before any next-round deal clears it.
   const roundScores = Object.fromEntries(state.players.map(player => [player.id, scoreHand(player.hand)]));
-  for (const player of state.players) player.score += roundScores[player.id];
-  state.lastAction = { type: "roundEnd", finisherId, roundScores };
+  for (const player of state.players) {
+    player.score = Number(player.score || 0) + roundScores[player.id];
+  }
+  state.lastAction = { type: "roundEnd", finisherId, roundScores, totals: Object.fromEntries(state.players.map(player => [player.id, player.score])) };
   const finisher = findPlayer(state, finisherId);
   if (finisher.phase === 10) {
     state.status = "finished";
