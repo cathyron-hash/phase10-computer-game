@@ -307,6 +307,35 @@ export function drawCard(state, playerId, source = "draw") {
   return clone(card);
 }
 
+function orderRunCards(cards) {
+  const count = cards.length;
+  const numbered = cards.filter(card => card.type === "number");
+  // Find the legal run interval, then place Wilds in the vacant positions.
+  for (let start = 1; start <= 13 - count; start++) {
+    const positions = new Map();
+    let valid = true;
+    for (const card of numbered) {
+      const position = card.number - start;
+      if (position < 0 || position >= count || positions.has(position)) {
+        valid = false;
+        break;
+      }
+      positions.set(position, card);
+    }
+    if (!valid) continue;
+    const wilds = cards.filter(card => card.type === "wild");
+    let wildIndex = 0;
+    const ordered = [];
+    for (let i = 0; i < count; i++) {
+      if (positions.has(i)) ordered.push(positions.get(i));
+      else if (wildIndex < wilds.length) ordered.push(wilds[wildIndex++]);
+      else { valid = false; break; }
+    }
+    if (valid && ordered.length === count) return ordered;
+  }
+  return cards;
+}
+
 export function layDownPhase(state, playerId, cardIds) {
   assertCurrent(state, playerId);
   if (state.turnStage !== "action") throw new Phase10Error("Draw before laying down a phase.");
@@ -324,10 +353,13 @@ export function layDownPhase(state, playerId, cardIds) {
   player.laidPhase = true;
   player.tableau = player.tableau ?? [];
   const phaseDefinition = PHASES[player.phase - 1];
-  player.tableau.push(...groups.map((groupIds, index) => ({
-    type: phaseDefinition[index].type,
-    cards: groupIds.map((id) => cards.find((c) => c.id === id)),
-  })));
+  player.tableau.push(...groups.map((groupIds, index) => {
+    const groupCards = groupIds.map((id) => cards.find((c) => c.id === id));
+    return {
+      type: phaseDefinition[index].type,
+      cards: phaseDefinition[index].type === "run" ? orderRunCards(groupCards) : groupCards,
+    };
+  }));
   state.lastAction = { type: "layPhase", playerId, phase: player.phase, groups };
   return clone(groups);
 }
@@ -428,8 +460,9 @@ export function playSkip(state, playerId, targetPlayerId, cardId) {
 }
 
 function finishRound(state, finisherId) {
-  for (const player of state.players) player.score += scoreHand(player.hand);
-  state.lastAction = { type: "roundEnd", finisherId };
+  const roundScores = Object.fromEntries(state.players.map(player => [player.id, scoreHand(player.hand)]));
+  for (const player of state.players) player.score += roundScores[player.id];
+  state.lastAction = { type: "roundEnd", finisherId, roundScores };
   const finisher = findPlayer(state, finisherId);
   if (finisher.phase === 10) {
     state.status = "finished";

@@ -95,9 +95,10 @@ button.secondary { background:#626b78; }
     <button id="new-game" type="button">New game</button>
     <button id="lay-down-phase" type="button" disabled>Lay down my phase</button>
     <button id="discard-selected" type="button" disabled>Discard selected card</button>
+    <button id="play-skip" type="button" disabled>Play Skip card</button>
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
   </div>
-  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. The computer takes its turn automatically.</p>
+  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. To use a Skip, select it and tap “Play Skip card.” The computer takes its turn automatically.</p>
   <h3>Your current phase</h3>
   <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
   <h3>Your hand</h3>
@@ -150,6 +151,7 @@ const laidPhases = document.getElementById("laid-phases");
 const drawPileButton = document.getElementById("draw-pile");
 const discardPileButton = document.getElementById("discard-pile");
 const discardSelectedButton = document.getElementById("discard-selected");
+const playSkipButton = document.getElementById("play-skip");
 const layDownPhaseButton = document.getElementById("lay-down-phase");
 const clearSelectionButton = document.getElementById("clear-selection");
 const newGameButton = document.getElementById("new-game");
@@ -306,6 +308,8 @@ function renderPlayableGame() {
   drawPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw";
   discardPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw" || !top;
   discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
+  const selectedCard = selectedPhaseCardIds.size === 1 ? player.hand.find(c => c.id === [...selectedPhaseCardIds][0]) : null;
+  playSkipButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type !== "skip";
   layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0;
   clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
   document.getElementById("opponent-strip").textContent = `Computer: ${computer.hand.length} cards · ${phaseDescription(computer.phase)} · Score ${computer.score}${computer.laidPhase ? " · laid down" : ""}`;
@@ -463,14 +467,17 @@ function computerTurn() {
       return worst;
     }, null);
     if (!discard) throw new Error("The computer couldn't choose a discard.");
-    Engine.discardCard(playableGame, computerId, discard.id);
+    if (discard.type === "skip") Engine.playSkip(playableGame, computerId, humanId, discard.id);
+    else Engine.discardCard(playableGame, computerId, discard.id);
     const sourceLabel = source === "discard"
       ? (discardIsImmediateHit ? "the discard pile (a legal hit)" : "the discard pile")
       : "the draw pile";
     if (playableGame.status === "finished") {
       playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage}, discarded ${cardLabel(discard)}, and won the game!`;
     } else if (playableGame.lastAction.type === "roundEnd") {
-      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage} and discarded ${cardLabel(discard)}. The round is over; a new round has started.`;
+      const ronPoints = playableGame.lastAction.roundScores?.[humanId] ?? 0;
+      const computerPoints = playableGame.lastAction.roundScores?.[computerId] ?? 0;
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage} and played/discarded ${cardLabel(discard)}. Round over: you earned ${ronPoints} points for cards left in your hand; the computer earned ${computerPoints}.`;
     } else {
       playMessage.textContent = `${computer.name} took ${sourceLabel}, drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}${phaseMessage}, and discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}. Your turn, Ron.`;
     }
@@ -480,6 +487,8 @@ function computerTurn() {
   selectedCardId = null;
   selectedPhaseCardIds.clear();
   renderPlayableGame();
+  // In a two-player game, if the computer plays a Skip it skips Ron and takes another turn.
+  if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) computerTurn();
 }
 
 function layDownHumanPhase() {
@@ -513,6 +522,33 @@ function hitHumanCard(targetPlayerId, targetGroupIndex) {
   }
 }
 
+function playHumanSkip() {
+  if (!playableGame || selectedPhaseCardIds.size !== 1) return;
+  const cardId = [...selectedPhaseCardIds][0];
+  const player = playableGame.players.find(p => p.id === humanId);
+  const card = player.hand.find(c => c.id === cardId);
+  if (card?.type !== "skip") {
+    playMessage.textContent = "Select a Skip card first.";
+    return;
+  }
+  try {
+    Engine.playSkip(playableGame, humanId, computerId, cardId);
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    if (playableGame.lastAction.type === "roundEnd") {
+      const points = playableGame.lastAction.roundScores?.[humanId] ?? 0;
+      playMessage.textContent = `You played a Skip on the computer. The round ended; you received ${points} points for cards left in your hand.`;
+      renderPlayableGame();
+      return;
+    }
+    playMessage.textContent = "You played a Skip card. The computer loses its next turn.";
+    renderPlayableGame();
+    if (playableGame.status === "playing" && currentPlayablePlayer()?.id === computerId) computerTurn();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
 function discardPlayableCard() {
   if (!playableGame || selectedPhaseCardIds.size !== 1 || !selectedCardId) return;
   try {
@@ -538,6 +574,7 @@ newGameButton.addEventListener("click", startPlayableGame);
 drawPileButton.addEventListener("click", () => drawPlayableCard("draw"));
 discardPileButton.addEventListener("click", () => drawPlayableCard("discard"));
 discardSelectedButton.addEventListener("click", discardPlayableCard);
+playSkipButton.addEventListener("click", playHumanSkip);
 layDownPhaseButton.addEventListener("click", layDownHumanPhase);
 clearSelectionButton.addEventListener("click", () => { selectedCardId = null; selectedPhaseCardIds.clear(); renderPlayableGame(); });
 
