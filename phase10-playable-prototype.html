@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 Game — V17</title>
+<title>Phase 10 Game — V18</title>
 
 <style>
 body {
@@ -87,8 +87,8 @@ button.secondary { background:#626b78; }
 </head>
 
 <body>
-<h1>Phase 10 Game — V17</h1>
-<p>V17 · Round scoring fix, visible computer Skip turns, and a scrollable reverse-chronology play history. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
+<h1>Phase 10 Game — V18</h1>
+<p>V18 · Both scores in the phase bars, clearer phase lay-down history, and a scrollable reverse-chronology play history. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
 
 <div id="game-layout">
 <section class="board-panel shared-panel" id="play-area">
@@ -282,12 +282,12 @@ function renderPlayableGame() {
   const player = playableGame.players.find(p => p.id === humanId);
   const current = currentPlayablePlayer();
   const isHumanTurn = current?.id === humanId && playableGame.status === "playing";
-  playStatus.textContent = `Round ${playableGame.roundNumber} · ${playableGame.status === "finished" ? "Game finished" : `${current?.name || "—"}’s turn`} · ${playableGame.turnStage === "draw" ? "Draw a card" : "Select cards to lay down a phase or discard one card"} · Phase ${player.phase} · Score ${player.score}${player.laidPhase ? " · Phase laid down" : ""}`;
+  playStatus.textContent = `Round ${playableGame.roundNumber} · ${playableGame.status === "finished" ? "Game finished" : `${current?.name || "—"}’s turn`} · ${playableGame.turnStage === "draw" ? "Draw a card" : "Select cards to lay down a phase or discard one card"} · Phase ${player.phase}${player.laidPhase ? " · Phase laid down" : ""}`;
   humanHand.replaceChildren();
   player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
   if (!player.hand.length) humanHand.textContent = "No cards in hand.";
   const computer = playableGame.players.find(p => p.id === computerId);
-  document.getElementById("human-phase-label").textContent = `You: ${phaseDescription(player.phase)}${player.laidPhase ? " · laid down" : ""}`;
+  document.getElementById("human-phase-label").textContent = `You: ${phaseDescription(player.phase)} · Score ${player.score}${player.laidPhase ? " · laid down" : ""}`;
   computerHand.replaceChildren();
   computer.hand.forEach(card => computerHand.appendChild(cardElement(card)));
   if (!computer.hand.length) computerHand.textContent = "No cards in hand.";
@@ -490,7 +490,7 @@ function computerTurn() {
       if (phaseIds) {
         const phaseNumber = computer.phase;
         Engine.layDownPhase(playableGame, computerId, phaseIds);
-        logActivity(`Computer laid down ${phaseDescription(phaseNumber)}.`);
+        logActivity(`COMPUTER LAID DOWN PHASE: ${phaseDescription(phaseNumber)}.`);
         phaseMessage = ` and laid down ${phaseDescription(phaseNumber)}`;
       }
     }
@@ -543,7 +543,7 @@ function layDownHumanPhase() {
     const ids = [...selectedPhaseCardIds];
     const phaseBefore = playableGame.players.find(p => p.id === humanId).phase;
     Engine.layDownPhase(playableGame, humanId, ids);
-    logActivity(`Ron laid down ${phaseDescription(phaseBefore)}.`);
+    logActivity(`RON LAID DOWN PHASE: ${phaseDescription(phaseBefore)}.`);
     selectedPhaseCardIds.clear();
     selectedCardId = null;
     const player = playableGame.players.find(p => p.id === humanId);
