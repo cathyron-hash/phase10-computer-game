@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 10 Game — V14</title>
+<title>Phase 10 Game — V15</title>
 
 <style>
 body {
@@ -71,6 +71,9 @@ button.playing-card { color:inherit; background:#fff; padding:6px 3px; }
 button.secondary { background:#626b78; }
 .opponent-strip { margin-top:14px; padding:12px; border-radius:10px; background:#eef1f5; }
 #human-hand { padding:10px 2px; min-height:95px; }
+#human-hand [data-hand-card="true"] { cursor:grab; user-select:none; -webkit-user-select:none; }
+#human-hand [data-hand-card="true"].dragging { opacity:.45; }
+#human-hand [data-hand-card="true"].drag-over { outline:3px dashed #2457a7; transform:translateY(-4px); }
 #play-area { border-top:5px solid #2457a7; }
 @media (min-width:700px) { .playing-card { flex-basis:64px; width:64px; min-height:90px; } }
 @media (min-width:700px) { #board { grid-template-columns:1fr 1fr; } .shared-panel { grid-column:1 / -1; } }
@@ -78,8 +81,8 @@ button.secondary { background:#626b78; }
 </head>
 
 <body>
-<h1>Phase 10 Game — V14</h1>
-<p>V14 · Current phase labels, extended sets and runs, and automatic computer hitting. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
+<h1>Phase 10 Game — V15</h1>
+<p>V15 · Extended phase lay-downs, smarter computer discard choices, and drag-and-drop hand reordering. Keep <code>phase10-engine.js</code> in the same folder as this HTML file.</p>
 
 <section class="board-panel shared-panel" id="play-area">
   <h2>Game table</h2>
@@ -98,6 +101,7 @@ button.secondary { background:#626b78; }
   <h3>Your current phase</h3>
   <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
   <h3>Your hand</h3>
+  <p class="small-note">Rearrange your cards by dragging one onto another. Tap cards to select them for a phase, hit, or discard.</p>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
   <h3>Computer’s hand (testing view)</h3>
@@ -152,6 +156,7 @@ const newGameButton = document.getElementById("new-game");
 let playableGame = null;
 let selectedCardId = null;
 const selectedPhaseCardIds = new Set();
+let draggedHandCardId = null;
 const humanId = "ron";
 const computerId = "computer";
 
@@ -178,7 +183,46 @@ function playableCardElement(card, selectable = false) {
     const isSelected = selectedPhaseCardIds.has(card.id);
     button.className = el.className + (isSelected ? " selected" : "");
     button.setAttribute("aria-pressed", String(isSelected));
-    button.setAttribute("aria-label", `${cardLabel(card)} ${card.color || card.type}`);
+    button.setAttribute("aria-label", `${cardLabel(card)} ${card.color || card.type}. Drag to reorder.`);
+    button.setAttribute("draggable", "true");
+    button.dataset.handCard = "true";
+    button.dataset.cardId = card.id;
+    button.addEventListener("dragstart", event => {
+      draggedHandCardId = card.id;
+      button.classList.add("dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", card.id);
+      }
+    });
+    button.addEventListener("dragend", () => {
+      draggedHandCardId = null;
+      button.classList.remove("dragging");
+      humanHand.querySelectorAll(".drag-over").forEach(node => node.classList.remove("drag-over"));
+    });
+    button.addEventListener("dragover", event => {
+      if (!draggedHandCardId || draggedHandCardId === card.id) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      button.classList.add("drag-over");
+    });
+    button.addEventListener("dragleave", () => button.classList.remove("drag-over"));
+    button.addEventListener("drop", event => {
+      event.preventDefault();
+      button.classList.remove("drag-over");
+      const fromId = draggedHandCardId || event.dataTransfer?.getData("text/plain");
+      const toId = card.id;
+      if (!fromId || fromId === toId || !playableGame) return;
+      const hand = playableGame.players.find(p => p.id === humanId).hand;
+      const fromIndex = hand.findIndex(item => item.id === fromId);
+      const toIndex = hand.findIndex(item => item.id === toId);
+      if (fromIndex < 0 || toIndex < 0) return;
+      const [moved] = hand.splice(fromIndex, 1);
+      hand.splice(toIndex, 0, moved);
+      draggedHandCardId = null;
+      playMessage.textContent = "Hand reordered. Your card selections are unchanged.";
+      renderPlayableGame();
+    });
     const value = document.createElement("div");
     value.className = "card-value";
     value.textContent = cardLabel(card);
@@ -332,7 +376,7 @@ function findComputerPhaseCards(hand, phaseNumber) {
   return null;
 }
 
-function computerHitAllPossible() {
+function computerHitAllPossible(preferredCardId = null) {
   const computer = playableGame.players.find(p => p.id === computerId);
   if (!computer.laidPhase || computer.hand.length <= 1) return [];
   const actions = [];
@@ -343,7 +387,12 @@ function computerHitAllPossible() {
       if (!target.laidPhase || !target.tableau) continue;
       for (let groupIndex = 0; groupIndex < target.tableau.length; groupIndex++) {
         const group = target.tableau[groupIndex];
-        for (const card of [...computer.hand]) {
+        const candidateCards = [...computer.hand].sort((a, b) => {
+          if (a.id === preferredCardId) return -1;
+          if (b.id === preferredCardId) return 1;
+          return 0;
+        });
+        for (const card of candidateCards) {
           if (computer.hand.length <= 1) break;
           try {
             Engine.hitOnTable(playableGame, computerId, target.id, groupIndex, card.id);
@@ -358,6 +407,28 @@ function computerHitAllPossible() {
   return actions;
 }
 
+function computerCanHitWithCard(card, playerId = computerId) {
+  if (!playableGame || !card) return false;
+  const testGame = JSON.parse(JSON.stringify(playableGame));
+  const testPlayer = testGame.players.find(p => p.id === playerId);
+  if (!testPlayer?.laidPhase) return false;
+  // Simulate taking the discard into the hand so the engine can validate the hit
+  // against exactly the same rules used for real moves.
+  testPlayer.hand.push(JSON.parse(JSON.stringify(card)));
+  testGame.discardPile = testGame.discardPile.filter((item, index, pile) => index !== pile.length - 1);
+  testGame.turnStage = "action";
+  for (const target of testGame.players) {
+    if (!target.laidPhase || !target.tableau) continue;
+    for (let groupIndex = 0; groupIndex < target.tableau.length; groupIndex++) {
+      try {
+        Engine.hitOnTable(testGame, playerId, target.id, groupIndex, card.id);
+        return true;
+      } catch (_) { /* Try another table group. */ }
+    }
+  }
+  return false;
+}
+
 function computerTurn() {
   if (!playableGame || playableGame.status !== "playing" || currentPlayablePlayer()?.id !== computerId) return;
   const computer = playableGame.players.find(p => p.id === computerId);
@@ -368,7 +439,8 @@ function computerTurn() {
     const weakestExisting = currentHand.length
       ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand)))
       : -1;
-    const source = top && topValue >= weakestExisting + 0.8 ? "discard" : "draw";
+    const discardIsImmediateHit = !!(top && computerCanHitWithCard(top, computerId));
+    const source = top && (discardIsImmediateHit || topValue >= weakestExisting + 0.8) ? "discard" : "draw";
     const drawn = Engine.drawCard(playableGame, computerId, source);
     let phaseMessage = "";
     if (!computer.laidPhase) {
@@ -379,7 +451,7 @@ function computerTurn() {
         phaseMessage = ` and laid down ${phaseDescription(phaseNumber)}`;
       }
     }
-    const hits = computerHitAllPossible();
+    const hits = computerHitAllPossible(discardIsImmediateHit ? drawn.id : null);
     if (hits.length) phaseMessage += `, then hit ${hits.join(", ")}`;
     const handAfterDraw = computer.hand;
     const discard = handAfterDraw.reduce((worst, card) => {
@@ -392,7 +464,9 @@ function computerTurn() {
     }, null);
     if (!discard) throw new Error("The computer couldn't choose a discard.");
     Engine.discardCard(playableGame, computerId, discard.id);
-    const sourceLabel = source === "discard" ? "the discard pile" : "the draw pile";
+    const sourceLabel = source === "discard"
+      ? (discardIsImmediateHit ? "the discard pile (a legal hit)" : "the discard pile")
+      : "the draw pile";
     if (playableGame.status === "finished") {
       playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage}, discarded ${cardLabel(discard)}, and won the game!`;
     } else if (playableGame.lastAction.type === "roundEnd") {
@@ -668,6 +742,30 @@ function runTests() {
       num(9, "red", "d"),
       num(9, "blue", "e"),
       num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a set of four plus a set of three (7 cards)", () =>
+    validPhase([
+      num(5, "red", "a1"),
+      num(5, "blue", "a2"),
+      num(5, "green", "a3"),
+      num(5, "yellow", "a4"),
+      num(9, "red", "b1"),
+      num(9, "blue", "b2"),
+      num(9, "green", "b3")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a longer set when a fourth matching card is included (7 cards)", () =>
+    validPhase([
+      num(5, "red", "c1"),
+      num(5, "blue", "c2"),
+      num(5, "green", "c3"),
+      num(5, "yellow", "c4"),
+      num(9, "red", "d1"),
+      num(9, "blue", "d2"),
+      num(9, "green", "d3")
     ], 1)
   );
 
