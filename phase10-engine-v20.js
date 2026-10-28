@@ -1,5 +1,5 @@
 /**
- * Phase 10 Game Engine — MVP
+ * Phase 10 Game Engine — V20
  * Browser-friendly ES module, independent of the user interface.
  *
  * Classic Phase 10 rules:
@@ -7,7 +7,7 @@
  * - 108-card deck: two each of numbers 1–12 in four colors, 8 Wilds, 4 Skips
  * - Each turn: draw, optionally lay down phase, optionally hit, discard
  *
- * This is the rules/state foundation. Computer strategy and UI are separate modules.
+ * V20 rules/state foundation. Computer strategy and UI are separate modules. A phase laydown must leave one card to discard; discarded Skip cards automatically skip the next player.
  */
 
 export const COLORS = ["red", "blue", "green", "yellow"];
@@ -341,15 +341,14 @@ export function layDownPhase(state, playerId, cardIds) {
   if (state.turnStage !== "action") throw new Phase10Error("Draw before laying down a phase.");
   const player = currentPlayer(state);
   if (player.laidPhase) throw new Phase10Error("You have already laid down this round's phase.");
+  if (!Array.isArray(cardIds) || cardIds.length === 0) throw new Phase10Error("Select the cards for your phase.");
+  if (cardIds.length >= player.hand.length) throw new Phase10Error("You must keep at least one card in your hand to discard after laying down your phase.");
   const cards = cardIds.map((id) => {
     const card = player.hand.find((c) => c.id === id);
     if (!card) throw new Phase10Error(`Card ${id} is not in your hand.`);
     return card;
   });
   const groups = validatePhase(cards, player.phase);
-  if (player.hand.length - cards.length < 1) {
-    throw new Phase10Error("You must keep at least one card in your hand to discard and end your turn.");
-  }
 
   const used = new Set(cardIds);
   player.hand = player.hand.filter((card) => !used.has(card.id));
@@ -421,6 +420,11 @@ export function discardCard(state, playerId, cardId) {
   if (player.hand.length === 0) {
     finishRound(state, player.id);
   } else {
+    if (card.type === "skip") {
+      const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+      const nextPlayer = state.players[nextIndex];
+      nextPlayer.skipped = true;
+    }
     advanceTurn(state);
   }
   return getPublicState(state, playerId);

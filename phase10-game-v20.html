@@ -6,90 +6,113 @@
 <title>Phase 10 Game — V20</title>
 
 <style>
-body {
-  font: 17px system-ui, -apple-system, sans-serif;
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #f5f6f8;
-  color: #20242a;
-}
-h1 { font-size: 1.7rem; }
-p { line-height: 1.45; }
-.buttons {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 16px 0;
-}
-button {
-  font: inherit;
-  padding: 12px 16px;
-  border: 0;
-  border-radius: 10px;
-  background: #2457a7;
-  color: white;
-}
-#results {
-  background: white;
-  border-radius: 12px;
-  padding: 14px;
-  white-space: pre-wrap;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-.pass { color: #167443; }
-.fail { color: #b42318; }
-.note { color: #555; font-size: .94rem; }
-
-#board { display:grid; gap:14px; margin:18px 0; }
-.board-panel { background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 4px #0001; }
-.board-panel h2 { margin:0 0 10px; font-size:1.15rem; }
-.player-panel { border-left:5px solid #2457a7; }
-.player-meta { color:#555; font-size:.9rem; margin-bottom:10px; }
-.hand, .tableau, .pile-row { display:flex; flex-wrap:wrap; gap:7px; align-items:flex-start; }
-.playing-card { width:48px; min-height:68px; box-sizing:border-box; border:1px solid #cbd1d8; border-radius:7px; background:#fff; padding:5px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; box-shadow:0 1px 2px #0001; font-weight:700; }
-.playing-card .card-value { font-size:1.25rem; line-height:1.1; }
-.playing-card .card-color { font-size:.62rem; text-transform:uppercase; }
+:root { color-scheme: dark; --felt:#176a43; --felt-deep:#0e4e31; --felt-light:#258454; --gold:#f4c75e; --ink:#15251c; --panel:#f6f4eb; --muted:#d4e7da; }
+* { box-sizing:border-box; }
+html { min-height:100%; background:var(--felt-deep); }
+body { margin:0; padding:clamp(10px,1.7vw,24px); max-width:none; min-height:100vh; color:#f9fff9; font:16px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:radial-gradient(ellipse at center, #258454 0%, var(--felt) 58%, var(--felt-deep) 100%); }
+body > h1 { margin:0 0 4px; font-size:clamp(1.35rem,2.1vw,2rem); letter-spacing:.02em; }
+body > p:first-of-type { margin:0 0 12px; color:#d9f0e1; font-size:.88rem; }
+h2,h3,h4 { margin:0 0 8px; }
+h2 { font-size:1.08rem; } h3 { font-size:.94rem; margin-top:12px; } h4 { font-size:.88rem; }
+p { line-height:1.4; }
+button { font:inherit; border:1px solid #d4e7d8; border-radius:10px; padding:10px 13px; color:#173c29; background:#fffdf5; box-shadow:0 2px 0 #092f1d55; touch-action:manipulation; }
+button:disabled { opacity:.45; cursor:not-allowed; box-shadow:none; }
+button:not(:disabled) { cursor:pointer; }
+button:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
+#game-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(215px,270px); gap:14px; align-items:stretch; margin:12px 0 22px; }
+.board-panel { min-width:0; border:1px solid #d8eadb; border-radius:16px; padding:clamp(10px,1.4vw,18px); color:var(--ink); background:rgba(250,249,240,.97); box-shadow:0 7px 20px #052d1c45; }
+#play-area { border:3px solid #d5b65d; background:linear-gradient(150deg,#1c754b,#125c39); color:#fff; display:flex; flex-direction:column; gap:8px; }
+#play-area > h2 { color:#fff8d8; padding-bottom:7px; border-bottom:1px solid #ffffff40; }
+#game-status { color:#e2f5e7; font-size:.9rem; }
+#play-piles { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:clamp(10px,2vw,28px); padding:10px 0 4px; }
+.pile-button { width:clamp(105px,12vw,145px); min-width:100px; min-height:clamp(112px,13vw,150px); padding:10px; border:3px solid #e4cf91; border-radius:12px; background:linear-gradient(145deg,#fffdf6,#e9e2cd); color:#263b2d; box-shadow:0 5px 0 #08351f70; }
+.pile-button strong { font-size:.95rem; }
+.pile-button .playing-card { margin:3px auto 0; }
+.game-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:5px 0; }
+#new-game { background:#f2c95e; border-color:#ffdf86; font-weight:800; }
+#lay-down-phase { background:#d9f0c8; font-weight:700; }
+#discard-selected { background:#fff3d0; font-weight:700; }
+#play-skip { display:none; }
+#clear-selection { background:#53675b; color:#fff; }
+#game-message { min-height:2.4em; margin:0; padding:9px 12px; border-radius:9px; background:#083c28aa; color:#fff; }
+#human-phase-label,#opponent-strip { padding:9px 12px; border:1px solid #d3b960; border-radius:9px; background:#0d4f32; color:#fff5cb; font-size:.9rem; }
+#human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-color:#c4d9c8 #0b4a2f; }
+#human-hand .playing-card { flex:0 0 clamp(48px,5.25vw,68px); width:clamp(48px,5.25vw,68px); min-height:clamp(74px,8.1vw,100px); }
+.playing-card { flex:0 0 58px; width:58px; min-height:82px; padding:6px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; border:2px solid #f5f1e3; border-radius:8px; background:linear-gradient(155deg,#fff,#f4f0e4); color:#1f2b23; box-shadow:0 3px 5px #061f1450; font-weight:800; cursor:default; }
+button.playing-card { color:inherit; background:linear-gradient(155deg,#fff,#f4f0e4); }
+.playing-card .card-value { font-size:clamp(1.1rem,1.5vw,1.45rem); line-height:1.05; }
+.playing-card .card-color { font-size:.58rem; text-transform:uppercase; letter-spacing:.02em; }
 .card-red { color:#c62828; border-color:#e6aaaa; }
 .card-blue { color:#1565c0; border-color:#a7c9ee; }
 .card-green { color:#218443; border-color:#a9d8b6; }
-.card-yellow { color:#8a6a00; border-color:#e6d48b; }
+.card-yellow { color:#806100; border-color:#e6d48b; }
 .card-special { color:#6534a5; border-color:#cbb8e8; }
-.tableau-group { border:1px dashed #b7bec8; border-radius:9px; padding:8px; margin:3px 8px 3px 0; min-width:150px; }
-.tableau-player { border-top:1px solid #d9dee5; margin-top:12px; padding-top:10px; }
-.hit-button { margin-top:8px; width:100%; padding:8px; font-size:.88rem; }
-.hit-button:disabled { opacity:.45; }
-.tableau-label { font-size:.8rem; color:#555; margin-bottom:6px; }
-.small-note { color:#666; font-size:.9rem; }
-.playing-card { flex:0 0 58px; width:58px; min-height:82px; cursor:pointer; touch-action:manipulation; }
-button.playing-card { color:inherit; background:#fff; padding:6px 3px; }
-.playing-card.selected { transform:translateY(-8px); outline:4px solid #f0b429; box-shadow:0 5px 12px #0003; }
-.pile-button { min-width:120px; min-height:105px; border:2px solid #d1d7df; background:#fff; color:#20242a; border-radius:12px; padding:12px; cursor:pointer; }
-.pile-button:disabled { opacity:.5; cursor:not-allowed; }
-.game-controls { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
-button.secondary { background:#626b78; }
-.opponent-strip { margin-top:14px; padding:12px; border-radius:10px; background:#eef1f5; }
-#human-hand { padding:10px 2px; min-height:95px; }
+#human-hand .playing-card.selected { transform:translateY(-8px); outline:3px solid var(--gold); box-shadow:0 7px 14px #0006; }
 #human-hand [data-hand-card="true"] { cursor:grab; user-select:none; -webkit-user-select:none; }
 #human-hand [data-hand-card="true"].dragging { opacity:.45; }
-#human-hand [data-hand-card="true"].drag-over { outline:3px dashed #2457a7; transform:translateY(-4px); }
-#play-area { border-top:5px solid #2457a7; }
-@media (min-width:700px) { .playing-card { flex-basis:64px; width:64px; min-height:90px; } }
-#game-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(240px, 300px); gap:14px; align-items:start; margin:18px 0; }
-#activity-panel { position:sticky; top:12px; }
-#activity-list { margin:8px 0 0; padding-left:22px; max-height:70vh; overflow-y:auto; overscroll-behavior:contain; }
-#activity-list li { padding:7px 4px 8px 0; border-bottom:1px solid #e5e7eb; font-size:.9rem; line-height:1.35; overflow-wrap:anywhere; }
-#activity-list li:first-child { font-weight:600; }
-@media (max-width:800px) { #game-layout { grid-template-columns:1fr; } #activity-panel { position:static; } #activity-list { max-height:280px; } }
-@media (orientation:landscape) and (min-width:900px) { body { padding:12px 18px; } #game-layout { grid-template-columns:minmax(0, 1fr) 290px; } #board { grid-template-columns:1fr 1fr; } .playing-card { flex-basis:58px; width:58px; min-height:82px; } }
-@media (min-width:700px) { #board { grid-template-columns:1fr 1fr; } .shared-panel { grid-column:1 / -1; } }
+#human-hand [data-hand-card="true"].drag-over { outline:3px dashed var(--gold); transform:translateY(-4px); }
+#computer-hand { display:flex; flex-wrap:wrap; gap:5px; padding:8px 0; }
+#computer-hand .playing-card { flex-basis:40px; width:40px; min-height:58px; padding:4px 2px; }
+#computer-hand .card-value { font-size:1rem; }
+#computer-hand .card-color { font-size:.5rem; }
+.opponent-strip { margin:0; }
+#laid-phases { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; }
+.tableau-player { border:1px solid #cddccf; border-radius:10px; margin:0; padding:9px; background:#fffef8; }
+.tableau { display:flex; flex-wrap:wrap; gap:5px; align-items:flex-start; }
+.tableau-group { border:1px dashed #a7b6aa; border-radius:8px; padding:6px; margin:2px; min-width:0; }
+.tableau-group .playing-card { flex-basis:38px; width:38px; min-height:54px; padding:3px 2px; }
+.tableau-group .card-value { font-size:.95rem; }
+.tableau-label,.small-note { font-size:.78rem; color:#d6eadd; }
+#play-area .small-note { color:#d6eadd; }
+#activity-panel { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:hidden; display:flex; flex-direction:column; }
+#activity-panel h2 { color:#1d4d32; }
+#activity-panel .small-note { color:#596b5f; }
+#activity-list { margin:8px 0 0; padding-left:25px; max-height:calc(100vh - 125px); overflow-y:auto; overscroll-behavior:contain; }
+#activity-list li { padding:7px 3px 8px 0; border-bottom:1px solid #e2e8df; font-size:.82rem; line-height:1.35; overflow-wrap:anywhere; }
+#activity-list li:first-child { font-weight:700; color:#176a43; }
+#board { display:grid; gap:12px; margin:16px 0; }
+#board .board-panel { background:#f6f4eb; color:#15251c; }
+#results { background:#f6f4eb; color:#15251c; border-radius:12px; padding:14px; white-space:pre-wrap; line-height:1.6; overflow-wrap:anywhere; }
+.pass { color:#167443; } .fail { color:#b42318; }
+.note { color:#e1f2e6; font-size:.85rem; }
+body > h2 { margin-top:24px; }
+body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+@media (min-width:900px) and (orientation:landscape) {
+  body { padding:12px 18px; }
+  #game-layout { grid-template-columns:minmax(0,1fr) 245px; }
+  #play-area { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"title title" "status status" "piles piles" "controls controls" "message message" "phase phase" "phasebar phasebar" "handtitle handtitle" "handnote handnote" "hand hand" "opponent opponent" "computertitle computertitle" "computer computer" "tabletitle tabletitle" "tablenote tablenote" "table table"; }
+  #play-area > h2 { grid-area:title; }
+  #game-status { grid-area:status; }
+  #play-piles { grid-area:piles; }
+  #play-area > .game-controls { grid-area:controls; }
+  #game-message { grid-area:message; }
+  #play-area > h3:nth-of-type(1) { grid-area:phase; }
+  #human-phase-label { grid-area:phasebar; }
+  #play-area > h3:nth-of-type(2) { grid-area:handtitle; }
+  #human-hand { grid-area:hand; }
+  #hand-note { grid-area:handnote; }
+  #opponent-strip { grid-area:opponent; }
+  #play-area > h3:nth-of-type(3) { grid-area:computertitle; }
+  #computer-hand { grid-area:computer; }
+  #play-area > h3:nth-of-type(4) { grid-area:tabletitle; }
+  #table-note { grid-area:tablenote; }
+  #laid-phases { grid-area:table; }
+}
+@media (max-width:850px), (orientation:portrait) {
+  body { padding:10px; }
+  #game-layout { grid-template-columns:1fr; }
+  #activity-panel { position:static; max-height:none; }
+  #activity-list { max-height:260px; }
+  #human-hand { flex-wrap:wrap; overflow-x:visible; }
+  #human-hand .playing-card { flex:0 0 54px; width:54px; min-height:78px; }
+}
 </style>
 </head>
 
 <body>
 <h1>Phase 10 Game — V20</h1>
-<p>V20 · iPad-friendly responsive layout, protected phase lay-downs, and automatic Skip handling when discarded. Keep <code>phase10-engine-v20.js</code> in the same folder as this HTML file.</p>
+<p>V20 · Landscape felt-table layout, with automatic Skip discard and a required discard remaining after phase laydown. Keep <code>phase10-engine-v20.js</code> in the same folder as this HTML file.</p>
 
 <div id="game-layout">
 <section class="board-panel shared-panel" id="play-area">
@@ -102,21 +125,21 @@ button.secondary { background:#626b78; }
   <div class="game-controls">
     <button id="new-game" type="button">New game</button>
     <button id="lay-down-phase" type="button" disabled>Lay down my phase</button>
-    <button id="discard-selected" type="button" disabled>Discard selected card (Skip auto-plays)</button>
-    <button id="play-skip" type="button" disabled>Play Skip card</button>
+    <button id="discard-selected" type="button" disabled>Discard selected card</button>
+    <button id="play-skip" type="button" disabled aria-hidden="true">Skip is automatic when discarded</button>
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
   </div>
-  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. Discarding a Skip automatically skips the computer. The computer takes its turn automatically.</p>
+  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. Discarding a Skip automatically skips the next player. The computer takes its turn automatically.</p>
   <h3>Your current phase</h3>
   <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
   <h3>Your hand</h3>
-  <p class="small-note">Rearrange your cards by dragging one onto another. Tap cards to select them for a phase, hit, or discard.</p>
+  <p id="hand-note" class="small-note">Rearrange your cards by dragging one onto another. Tap cards to select them for a phase, hit, or discard.</p>
   <div id="human-hand" class="hand"></div>
   <div class="opponent-strip" id="opponent-strip">Computer: — cards</div>
   <h3>Computer’s hand (testing view)</h3>
   <div id="computer-hand" class="hand" aria-label="Computer hand shown for testing"></div>
   <h3>Phases laid down</h3>
-  <p class="small-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits.</p>
+  <p id="table-note" class="small-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits. You must keep at least one card to discard.</p>
   <div id="laid-phases"><p class="small-note">No phases laid down yet.</p></div>
 </section>
 <aside class="board-panel" id="activity-panel" aria-label="Play history">
@@ -127,7 +150,7 @@ button.secondary { background:#626b78; }
 </div>
 
 <h2>Engine diagnostics</h2>
-<p class="note">The test buttons below are retained to help verify the underlying rules engine.</p>
+<p class="note">Developer diagnostics are retained below the table to help verify the underlying rules engine.</p>
 
 <div class="buttons">
   <button onclick="runTests()">Run all tests</button>
@@ -149,7 +172,7 @@ Loading Phase 10 engine...
 </div>
 
 <p class="note">
-Diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer checks for a valid phase after drawing, lays it down when possible, hits on every legal table group while keeping one card to discard, then discards.
+V20 diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer checks for a valid phase after drawing, lays it down when possible, hits on every legal table group while keeping one card to discard, then discards.
 </p>
 
 <script type="module">
@@ -345,7 +368,7 @@ function renderPlayableGame() {
   discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
   const selectedCard = selectedPhaseCardIds.size === 1 ? player.hand.find(c => c.id === [...selectedPhaseCardIds][0]) : null;
   playSkipButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type !== "skip";
-  layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0;
+  layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0 || selectedPhaseCardIds.size >= player.hand.length;
   clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
   document.getElementById("opponent-strip").textContent = `Computer: ${computer.hand.length} cards · ${phaseDescription(computer.phase)} · Score ${computer.score}${computer.laidPhase ? " · laid down" : ""}`;
 }
@@ -508,11 +531,10 @@ function computerTurn() {
       return worst;
     }, null);
     if (!discard) throw new Error("The computer couldn't choose a discard.");
-    if (discard.type === "skip") {
-      Engine.playSkip(playableGame, computerId, humanId, discard.id);
-      logActivity("Computer played a SKIP on Ron. Ron loses this turn; the computer will take another turn.");
+    Engine.discardCard(playableGame, computerId, discard.id);
+    if (discard.type === "skip" && playableGame.status === "playing") {
+      logActivity("Computer discarded a SKIP. Ron is automatically skipped.");
     } else {
-      Engine.discardCard(playableGame, computerId, discard.id);
       logActivity(`Computer discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}.`);
     }
     logRoundScores();
@@ -574,6 +596,7 @@ function hitHumanCard(targetPlayerId, targetGroupIndex) {
 }
 
 function playHumanSkip() {
+  // Legacy handler retained for compatibility; the button is hidden in V20 because Skip is automatic on discard.
   if (!playableGame || selectedPhaseCardIds.size !== 1) return;
   const cardId = [...selectedPhaseCardIds][0];
   const player = playableGame.players.find(p => p.id === humanId);
@@ -606,11 +629,10 @@ function discardPlayableCard() {
   if (!playableGame || selectedPhaseCardIds.size !== 1 || !selectedCardId) return;
   try {
     const discarded = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === selectedCardId);
-    if (discarded?.type === "skip") {
-      Engine.playSkip(playableGame, humanId, computerId, selectedCardId);
-      logActivity("Ron discarded a SKIP; the computer automatically loses its next turn.");
+    Engine.discardCard(playableGame, humanId, selectedCardId);
+    if (discarded?.type === "skip" && playableGame.status === "playing") {
+      logActivity("Ron discarded a SKIP. The next player is automatically skipped.");
     } else {
-      Engine.discardCard(playableGame, humanId, selectedCardId);
       logActivity(`Ron discarded ${cardLabel(discarded)}${discarded?.color ? " " + discarded.color : ""}.`);
     }
     logRoundScores();
@@ -619,6 +641,11 @@ function discardPlayableCard() {
     if (playableGame.status === "finished") {
       playMessage.textContent = `${playableGame.players.find(p => p.id === playableGame.winnerId)?.name || "A player"} wins the game!`;
     } else {
+      if (discarded?.type === "skip" && currentPlayablePlayer()?.id === humanId) {
+        playMessage.textContent = "You discarded a Skip. The computer was automatically skipped, so it is your turn again.";
+        renderPlayableGame();
+        return;
+      }
       playMessage.textContent = `You discarded ${cardLabel(discarded)}. The computer is thinking…`;
       renderPlayableGame();
       computerTurn();
