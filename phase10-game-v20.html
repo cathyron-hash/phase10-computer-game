@@ -40,7 +40,7 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 #human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-color:#c4d9c8 #0b4a2f; }
 #human-hand .playing-card { flex:0 0 clamp(48px,5.25vw,68px); width:clamp(48px,5.25vw,68px); min-height:clamp(74px,8.1vw,100px); }
 .playing-card { flex:0 0 58px; width:58px; min-height:82px; padding:6px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; border:2px solid #f5f1e3; border-radius:8px; background:linear-gradient(155deg,#fff,#f4f0e4); color:#1f2b23; box-shadow:0 3px 5px #061f1450; font-weight:800; cursor:default; }
-button.playing-card { color:inherit; background:linear-gradient(155deg,#fff,#f4f0e4); }
+button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
 .playing-card .card-value { font-size:clamp(1.1rem,1.5vw,1.45rem); line-height:1.05; }
 .playing-card .card-color { font-size:.58rem; text-transform:uppercase; letter-spacing:.02em; }
 .card-red { color:#c62828; border-color:#e6aaaa; }
@@ -148,32 +148,6 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   <ol id="activity-list" aria-live="polite"><li class="small-note">Start a new game to begin the history.</li></ol>
 </aside>
 </div>
-
-<h2>Engine diagnostics</h2>
-<p class="note">Developer diagnostics are retained below the table to help verify the underlying rules engine.</p>
-
-<div class="buttons">
-  <button onclick="runTests()">Run all tests</button>
-  <button onclick="testLayDownPhase1()">Test laying down Phase 1</button>
-  <button onclick="testHitOnTable()">Test hitting on a phase</button>
-  <button onclick="testEndRound()">Test ending a round</button>
-  <button onclick="testGameVictory()">Test game victory</button>  
-  <button onclick="dealSample()">Deal a sample game</button>
-  <button onclick="testTurn()">Test a turn</button>
-  <button onclick="testPhase1()">Test Phase 1</button>
-</div>
-
-<div id="board" aria-live="polite">
-  <section class="board-panel"><strong>Game board</strong><p class="small-note">Tap “Deal a sample game” or a gameplay test to display the cards.</p></section>
-</div>
-
-<div id="results" aria-live="polite">
-Loading Phase 10 engine...
-</div>
-
-<p class="note">
-V20 diagnostics exercise the rules engine. Testing view shows the computer’s hand and phases laid down. During a game, select multiple cards to lay down your phase; after your phase is down, select one card and use “Hit with selected card” under an eligible group, or discard to finish your turn. The computer checks for a valid phase after drawing, lays it down when possible, hits on every legal table group while keeping one card to discard, then discards.
-</p>
 
 <script type="module">
 import * as Engine from "./phase10-engine-v20.js";
@@ -1315,8 +1289,8 @@ window.testLayDownPhase1 = testLayDownPhase1;
 window.testHitOnTable = testHitOnTable;
 window.testEndRound = testEndRound;
 
-out.textContent =
-  "Engine module loaded. Choose a test button to begin.";
+if (out) out.textContent =
+  "Engine module loaded.";
 </script>
 </body>
 </html>
