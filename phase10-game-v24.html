@@ -363,11 +363,20 @@ function renderPlayableGame() {
     const meta = document.createElement("p");
     meta.className = "opponent-meta";
     meta.textContent = `${computerStyles[opponent.id] || "Computer"} · ${opponent.hand.length} cards · Phase ${opponent.phase} · Score ${opponent.score}${opponent.laidPhase ? " · laid down" : ""}`;
+
     const hand = document.createElement("div");
     hand.className = "opponent-hand";
-    hand.setAttribute("aria-label", `${opponent.name}'s cards, shown for testing`);
-    opponent.hand.forEach(card => hand.appendChild(cardElement(card)));
-    if (!opponent.hand.length) hand.textContent = "No cards";
+    hand.setAttribute("aria-label", `${opponent.name}'s face-down cards`);
+
+  opponent.hand.forEach(() => {
+  const back = document.createElement("div");
+  back.className = "playing-card card-back";
+  back.textContent = "10";
+  back.setAttribute("aria-label", "Face-down card");
+  hand.appendChild(back);
+});
+
+if (!opponent.hand.length) hand.textContent = "No cards";
     area.append(name, meta, hand);
     opponentAreas.appendChild(area);
   });
