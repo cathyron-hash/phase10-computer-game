@@ -24,7 +24,7 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 .board-panel { min-width:0; border:1px solid #d8eadb; border-radius:16px; padding:clamp(10px,1.4vw,18px); color:var(--ink); background:rgba(250,249,240,.97); box-shadow:0 7px 20px #052d1c45; }
 #play-area { border:3px solid #d5b65d; background:linear-gradient(150deg,#1c754b,#125c39); color:#fff; display:flex; flex-direction:column; gap:8px; }
 #play-area > h2 { color:#fff8d8; padding-bottom:7px; border-bottom:1px solid #ffffff40; }
-#game-status { color:#e2f5e7; font-size:.9rem; }
+#game-status { display:none; color:#e2f5e7; font-size:.9rem; }
 #play-piles { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:clamp(10px,2vw,28px); padding:10px 0 4px; }
 .pile-button { width:clamp(105px,12vw,145px); min-width:100px; min-height:clamp(112px,13vw,150px); padding:10px; border:3px solid #e4cf91; border-radius:12px; background:linear-gradient(145deg,#fffdf6,#e9e2cd); color:#263b2d; box-shadow:0 5px 0 #08351f70; }
 .pile-button strong { font-size:.95rem; }
@@ -35,8 +35,8 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 #discard-selected { background:#fff3d0; font-weight:700; }
 #play-skip { display:none; }
 #clear-selection { background:#53675b; color:#fff; }
-#game-message { min-height:2.4em; margin:0; padding:9px 12px; border-radius:9px; background:#083c28aa; color:#fff; }
-#human-phase-label { padding:9px 12px; border:1px solid #d3b960; border-radius:9px; background:#0d4f32; color:#fff5cb; font-size:.9rem; }
+#game-message { display:none !important; min-height:0; margin:0; padding:0; }
+#human-phase-label { padding:5px 10px 2px; margin:0; border:0; border-radius:0; background:transparent; color:#fff5cb; font-size:.9rem; font-weight:800; text-align:left; }
 #opponent-areas { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; } .opponent-card { min-width:0; padding:8px; border:1px solid #d3b960; border-radius:10px; background:#0d4f32; color:#fff5cb; } .opponent-card.active { outline:3px solid #f4c75e; outline-offset:1px; } .opponent-name { margin:0 0 4px; font-weight:800; } .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; } .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; } .opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; } .opponent-hand .card-value { font-size:.8rem; } .opponent-hand .card-color { font-size:.42rem; }
 @media (max-width:600px) { #opponent-areas { grid-template-columns:1fr; } .opponent-hand { max-height:70px; overflow:hidden; } }
 #human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-color:#c4d9c8 #0b4a2f; }
@@ -127,24 +127,20 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
     display:grid;
     grid-template-columns:minmax(120px, .8fr) minmax(300px, 2.2fr) minmax(120px, .8fr);
     grid-template-areas:
-      "title title title"
-      "status status status"
-      "message message message"
       "opponenttitle opponenttitle opponenttitle"
       "opponents opponents opponents"
       "leftcontrols piles rightcontrols"
       "tabletitle tabletitle tabletitle"
       "table table table"
-      "phase phasebar phasebar"
-      "handtitle handtitle handtitle"
+      "phasebar phasebar phasebar"
       "hand hand hand";
     align-content:start;
     align-items:center;
-    gap:9px 12px;
+    gap:5px 10px;
+    padding:9px;
   }
-  #play-area > h2 { grid-area:title; }
-  #game-status { grid-area:status; }
-  #play-area > h3:nth-of-type(3) { grid-area:opponenttitle; }
+  #play-area > h3:nth-of-type(1) { grid-area:opponenttitle; margin:0; }
+
   #opponent-areas { grid-area:opponents; }
   #left-controls { grid-area:leftcontrols; }
   #right-controls { grid-area:rightcontrols; }
@@ -160,7 +156,7 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   .side-controls { display:flex; flex-direction:column; justify-content:center; gap:12px; margin:0; min-width:0; }
   .side-controls button { width:100%; min-height:48px; padding:8px; font-size:.9rem; }
   #play-skip { display:none; }
-  #play-area > h3:nth-of-type(4) { grid-area:tabletitle; margin:0; }
+  #play-area > h3:nth-of-type(2) { grid-area:tabletitle; margin:0; }
   #laid-phases {
     grid-area:table;
     min-height:64px;
@@ -172,19 +168,19 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
     grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
     gap:5px;
   }
-  #game-message { grid-area:message; }
-  #play-area > h3:nth-of-type(1) { grid-area:phase; align-self:end; margin:0; }
   #human-phase-label { grid-area:phasebar; }
-  #play-area > h3:nth-of-type(2) { grid-area:handtitle; margin:0; }
   #human-hand {
     grid-area:hand;
-    min-height:120px;
+    min-height:104px;
+    padding-top:8px; padding-bottom:10px;
     background:#083d279c;
     border:1px solid #d5b65d80;
     box-shadow:inset 0 0 18px #031e1240;
   }
   #opponent-areas { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .opponent-card { min-height:100px; }
+  .opponent-card { min-height:88px; padding:6px; }
+  .opponent-hand .playing-card { min-height:38px; }
+  #laid-phases { padding:3px; gap:3px; }
   .pile-button { width:clamp(112px,11vw,145px); min-height:clamp(128px,13vw,154px); }
 }
 @media (max-width:850px), (orientation:portrait) {
@@ -239,13 +235,9 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
 </head>
 
 <body>
-<h1>Phase 10 Game — V24</h1>
-<p>V24 · Four-player card-table layout with rotating dealer, left-of-dealer opening turn, and automatic Skip rules.</p>
-
 <div id="game-layout">
 <section class="board-panel shared-panel" id="play-area">
-  <h2>Game table</h2>
-  <div id="game-status" class="player-meta">Start a new game to deal the cards.</div>
+  <div id="game-status" class="player-meta" aria-hidden="true"></div>
   <div class="game-controls side-controls" id="left-controls">
     <button id="new-game" type="button">New game</button>
     <button id="lay-down-phase" type="button" disabled>Lay down my phase</button>
@@ -259,10 +251,8 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
     <button id="play-skip" type="button" disabled aria-hidden="true">Skip is automatic when discarded</button>
   </div>
-  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. Discarding a Skip automatically skips the next player. The computer takes its turn automatically.</p>
-  <h3>Your current phase</h3>
+  <p id="game-message" class="small-note" aria-live="polite" hidden></p>
   <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
-  <h3>Your hand</h3>
   <div id="human-hand" class="hand"></div>
   <h3>Computer opponents</h3>
   <div id="opponent-areas" aria-label="Computer opponents"></div>
@@ -603,6 +593,7 @@ function animateCardFlight(card, fromElement, toElement, faceDown = false) {
   const ghost = faceDown ? document.createElement('div') : cardElement(card);
   if (faceDown) {
     ghost.className = 'playing-card card-back';
+    ghost.textContent = "10";
     ghost.setAttribute('aria-label', 'Face-down card');
   }
   ghost.classList.add('card-flight');
