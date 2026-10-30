@@ -450,6 +450,7 @@ function startPlayableGame() {
   }
   playMessage.textContent = "Draw a card, then select cards for your phase and tap Lay down my phase, or select one card and discard it. Alex, Sophie, and Taylor will play automatically.";
   renderPlayableGame();
+  scheduleComputerTurn();
 }
 
 function drawPlayableCard(source) {
