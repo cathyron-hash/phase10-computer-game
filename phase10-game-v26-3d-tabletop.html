@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 10 Game — V26 3D Tabletop</title>
+
+<style>
+:root { color-scheme: dark; --felt:#176a43; --felt-deep:#0e4e31; --felt-light:#258454; --gold:#f4c75e; --ink:#15251c; --panel:#f6f4eb; --muted:#d4e7da; }
+* { box-sizing:border-box; }
+html { min-height:100%; background:var(--felt-deep); }
+body { margin:0; padding:clamp(10px,1.7vw,24px); max-width:none; min-height:100vh; color:#f9fff9; font:16px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:radial-gradient(ellipse at center, #258454 0%, var(--felt) 58%, var(--felt-deep) 100%); }
+body > h1 { margin:0 0 4px; font-size:clamp(1.35rem,2.1vw,2rem); letter-spacing:.02em; }
+body > p:first-of-type { margin:0 0 12px; color:#d9f0e1; font-size:.88rem; }
+h2,h3,h4 { margin:0 0 8px; }
+h2 { font-size:1.08rem; } h3 { font-size:.94rem; margin-top:12px; } h4 { font-size:.88rem; }
+p { line-height:1.4; }
+button { font:inherit; border:1px solid #d4e7d8; border-radius:10px; padding:10px 13px; color:#173c29; background:#fffdf5; box-shadow:0 2px 0 #092f1d55; touch-action:manipulation; }
+button:disabled { opacity:.45; cursor:not-allowed; box-shadow:none; }
+button:not(:disabled) { cursor:pointer; }
+button:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
+#game-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(215px,270px); gap:14px; align-items:stretch; margin:12px 0 22px; }
+.board-panel { min-width:0; border:1px solid #d8eadb; border-radius:16px; padding:clamp(10px,1.4vw,18px); color:var(--ink); background:rgba(250,249,240,.97); box-shadow:0 7px 20px #052d1c45; }
+#play-area { border:3px solid #d5b65d; background:linear-gradient(150deg,#1c754b,#125c39); color:#fff; display:flex; flex-direction:column; gap:8px; }
+#play-area > h2 { color:#fff8d8; padding-bottom:7px; border-bottom:1px solid #ffffff40; }
+#game-status { color:#e2f5e7; font-size:.9rem; }
+#play-piles { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:clamp(10px,2vw,28px); padding:10px 0 4px; }
+.pile-button { width:clamp(105px,12vw,145px); min-width:100px; min-height:clamp(112px,13vw,150px); padding:10px; border:3px solid #e4cf91; border-radius:12px; background:linear-gradient(145deg,#fffdf6,#e9e2cd); color:#263b2d; box-shadow:0 5px 0 #08351f70; }
+.pile-button strong { font-size:.95rem; }
+.pile-button .playing-card { margin:3px auto 0; }
+.game-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:5px 0; }
+#new-game { background:#f2c95e; border-color:#ffdf86; font-weight:800; }
+#lay-down-phase { background:#d9f0c8; font-weight:700; }
+#discard-selected { background:#fff3d0; font-weight:700; }
+#play-skip { display:none; }
+#clear-selection { background:#53675b; color:#fff; }
+#game-message { min-height:2.4em; margin:0; padding:9px 12px; border-radius:9px; background:#083c28aa; color:#fff; }
+#human-phase-label { padding:9px 12px; border:1px solid #d3b960; border-radius:9px; background:#0d4f32; color:#fff5cb; font-size:.9rem; }
+#opponent-areas { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; } .opponent-card { min-width:0; padding:8px; border:1px solid #d3b960; border-radius:10px; background:#0d4f32; color:#fff5cb; } .opponent-card.active { outline:3px solid #f4c75e; outline-offset:1px; } .opponent-name { margin:0 0 4px; font-weight:800; } .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; } .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; } .opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; } .opponent-hand .card-value { font-size:.8rem; } .opponent-hand .card-color { font-size:.42rem; }
+@media (max-width:600px) { #opponent-areas { grid-template-columns:1fr; } .opponent-hand { max-height:70px; overflow:hidden; } }
+#human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-color:#c4d9c8 #0b4a2f; }
+#human-hand .playing-card { flex:0 0 clamp(48px,5.25vw,68px); width:clamp(48px,5.25vw,68px); min-height:clamp(74px,8.1vw,100px); }
+.playing-card { flex:0 0 58px; width:58px; min-height:82px; padding:6px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; border:2px solid #f5f1e3; border-radius:8px; background:linear-gradient(155deg,#fff,#f4f0e4); color:#1f2b23; box-shadow:0 3px 5px #061f1450; font-weight:800; cursor:default; }
+button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
+.playing-card .card-value { font-size:clamp(1.1rem,1.5vw,1.45rem); line-height:1.05; }
+.playing-card .card-color { font-size:.58rem; text-transform:uppercase; letter-spacing:.02em; }
+.card-red { color:#c62828; border-color:#e6aaaa; }
+.card-blue { color:#1565c0; border-color:#a7c9ee; }
+.card-green { color:#218443; border-color:#a9d8b6; }
+.card-yellow { color:#806100; border-color:#e6d48b; }
+.card-special { color:#6534a5; border-color:#cbb8e8; }
+
+.card-back {
+  background: repeating-linear-gradient(
+    45deg,
+    #173e69,
+    #173e69 4px,
+    #24588a 4px,
+    #24588a 8px
+  );
+  color: #ffe6a0;
+  border: 2px solid #d8bd65;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  font-weight: 900;
+}
+.opponent-hand .card-back { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; }
+  
+#human-hand .playing-card.selected { transform:translateY(-8px); outline:3px solid var(--gold); box-shadow:0 7px 14px #0006; }
+#human-hand [data-hand-card="true"] { cursor:grab; user-select:none; -webkit-user-select:none; }
+#human-hand [data-hand-card="true"].dragging { opacity:.45; }
+#human-hand [data-hand-card="true"].drag-over { outline:3px dashed var(--gold); transform:translateY(-4px); }
+.opponent-strip { margin:0; }
+#laid-phases { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; }
+.tableau-player { border:1px solid #cddccf; border-radius:10px; margin:0; padding:6px; background:#fffef8; }
+.tableau-player h4 { margin:0 0 4px; font-size:.76rem; }
+.tableau { display:flex; flex-wrap:wrap; gap:3px; align-items:flex-start; }
+.tableau-group { border:1px dashed #a7b6aa; border-radius:6px; padding:3px; margin:1px; min-width:0; overflow:visible; }
+.tableau-group .tableau-label { font-size:.62rem; line-height:1.15; margin-bottom:2px; color:#596b5f; }
+.tableau-group .hand { display:flex; flex-wrap:nowrap; gap:0; align-items:flex-start; }
+.tableau-group .playing-card { flex:0 0 25px; width:25px; min-height:36px; padding:2px 1px; margin-right:-11px; position:relative; border-width:1px; border-radius:4px; box-shadow:0 1px 3px #061f1440; }
+.tableau-group .playing-card:last-child { margin-right:0; } .tableau-group .playing-card:hover { z-index:3; } .tableau-group .card-value { font-size:.68rem; } .tableau-group .card-color { font-size:.38rem; }
+.tableau-group .hit-button { margin-top:4px; padding:4px 6px; min-height:28px; font-size:.62rem; border-radius:6px; }
+.tableau-label,.small-note { font-size:.78rem; color:#d6eadd; }
+#play-area .small-note { color:#d6eadd; }
+#instructions-footer { margin:14px 0 0; padding:12px 16px; border:1px solid #ffffff45; border-radius:14px; background:#083d279c; color:#f6fff7; }
+#instructions-footer h2 { color:#fff2bd; margin:0 0 6px; }
+#instructions-footer p { margin:5px 0; font-size:.84rem; color:#e0f1e4; }
+#activity-panel { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:hidden; display:flex; flex-direction:column; }
+#activity-panel h2 { color:#1d4d32; }
+#activity-panel .small-note { color:#596b5f; }
+#activity-list { margin:8px 0 0; padding-left:25px; max-height:calc(100vh - 125px); overflow-y:auto; overscroll-behavior:contain; }
+#activity-list li { padding:7px 3px 8px 0; border-bottom:1px solid #e2e8df; font-size:.82rem; line-height:1.35; overflow-wrap:anywhere; }
+#activity-list li:first-child { font-weight:700; color:#176a43; }
+#board { display:grid; gap:12px; margin:16px 0; }
+#board .board-panel { background:#f6f4eb; color:#15251c; }
+#results { background:#f6f4eb; color:#15251c; border-radius:12px; padding:14px; white-space:pre-wrap; line-height:1.6; overflow-wrap:anywhere; }
+.pass { color:#167443; } .fail { color:#b42318; }
+.note { color:#e1f2e6; font-size:.85rem; }
+body > h2 { margin-top:24px; }
+body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+@media (min-width:900px) and (orientation:landscape) {
+  body { padding:12px 18px; }
+  #game-layout { grid-template-columns:minmax(0,1fr) 245px; }
+  #play-area {
+    display:grid;
+    grid-template-columns:minmax(120px, .8fr) minmax(300px, 2.2fr) minmax(120px, .8fr);
+    grid-template-areas:
+      "title title title"
+      "status status status"
+      "message message message"
+      "opponenttitle opponenttitle opponenttitle"
+      "opponents opponents opponents"
+      "leftcontrols piles rightcontrols"
+      "tabletitle tabletitle tabletitle"
+      "table table table"
+      "phase phasebar phasebar"
+      "handtitle handtitle handtitle"
+      "hand hand hand";
+    align-content:start;
+    align-items:center;
+    gap:9px 12px;
+  }
+  #play-area > h2 { grid-area:title; }
+  #game-status { grid-area:status; }
+  #play-area > h3:nth-of-type(3) { grid-area:opponenttitle; }
+  #opponent-areas { grid-area:opponents; }
+  #left-controls { grid-area:leftcontrols; }
+  #right-controls { grid-area:rightcontrols; }
+  #play-piles {
+    grid-area:piles;
+    min-height:172px;
+    padding:18px 12px;
+    border:1px solid #d9c477;
+    border-radius:22px;
+    background:radial-gradient(ellipse at center, #23764b 0%, #145c3a 68%, #104c31 100%);
+    box-shadow:inset 0 0 0 5px #ffffff08, inset 0 0 24px #062b1a55;
+  }
+  .side-controls { display:flex; flex-direction:column; justify-content:center; gap:12px; margin:0; min-width:0; }
+  .side-controls button { width:100%; min-height:48px; padding:8px; font-size:.9rem; }
+  #play-skip { display:none; }
+  #play-area > h3:nth-of-type(4) { grid-area:tabletitle; margin:0; }
+  #laid-phases {
+    grid-area:table;
+    min-height:64px;
+    padding:5px;
+    border:1px solid #ffffff35;
+    border-radius:14px;
+    background:#0b4a2f70;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
+    gap:5px;
+  }
+  #game-message { grid-area:message; }
+  #play-area > h3:nth-of-type(1) { grid-area:phase; align-self:end; margin:0; }
+  #human-phase-label { grid-area:phasebar; }
+  #play-area > h3:nth-of-type(2) { grid-area:handtitle; margin:0; }
+  #human-hand {
+    grid-area:hand;
+    min-height:120px;
+    background:#083d279c;
+    border:1px solid #d5b65d80;
+    box-shadow:inset 0 0 18px #031e1240;
+  }
+  #opponent-areas { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .opponent-card { min-height:100px; }
+  .pile-button { width:clamp(112px,11vw,145px); min-height:clamp(128px,13vw,154px); }
+}
+@media (max-width:850px), (orientation:portrait) {
+  body { padding:10px; }
+  #game-layout { grid-template-columns:1fr; }
+  #play-area { display:flex; flex-direction:column; }
+  #left-controls, #right-controls { display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; }
+  #left-controls button, #right-controls button { flex:1 1 42%; }
+  #activity-panel { position:static; max-height:none; }
+  #activity-list { max-height:260px; }
+  #human-hand { flex-wrap:wrap; overflow-x:visible; }
+  #human-hand .playing-card { flex:0 0 54px; width:54px; min-height:78px; }
+  #instructions-footer { margin-top:10px; }
+}
+
+/* V25: subtle tabletop perspective and physical-card depth */
+#play-area { perspective: 1100px; transform-style: preserve-3d; }
+#play-piles, #human-hand, #opponent-areas, #laid-phases { transform-style: preserve-3d; }
+.playing-card {
+  transform: perspective(700px) rotateX(2deg) rotateY(-1deg) translateZ(2px);
+  box-shadow: 0 4px 7px #061f1466, 0 10px 16px #061f1422;
+  transition: transform .22s ease, box-shadow .22s ease;
+  backface-visibility: hidden;
+}
+#human-hand .playing-card:hover, .tableau-group .playing-card:hover {
+  transform: perspective(700px) rotateX(-5deg) rotateY(3deg) translateY(-7px) translateZ(14px);
+  box-shadow: 0 13px 18px #061f1477, 0 2px 4px #061f1444;
+  z-index: 8;
+}
+#human-hand .playing-card.selected {
+  transform: perspective(700px) rotateX(-4deg) rotateY(2deg) translateY(-10px) translateZ(12px);
+  box-shadow: 0 14px 20px #0008;
+}
+.opponent-hand .card-back {
+  transform: perspective(700px) rotateX(5deg) rotateY(-3deg) translateZ(2px);
+  box-shadow: 0 4px 7px #03182a88, 0 9px 13px #03182a33;
+}
+.card-flight {
+  position: fixed !important;
+  z-index: 99999 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 18px 12px #001b1199);
+}
+@media (prefers-reduced-motion: reduce) {
+  .playing-card { transition: none !important; }
+}
+
+</style>
+</head>
+
+<body>
+<h1>Phase 10 Game — V24</h1>
+<p>V24 · Four-player card-table layout with rotating dealer, left-of-dealer opening turn, and automatic Skip rules.</p>
+
+<div id="game-layout">
+<section class="board-panel shared-panel" id="play-area">
+  <h2>Game table</h2>
+  <div id="game-status" class="player-meta">Start a new game to deal the cards.</div>
+  <div class="game-controls side-controls" id="left-controls">
+    <button id="new-game" type="button">New game</button>
+    <button id="lay-down-phase" type="button" disabled>Lay down my phase</button>
+  </div>
+  <div class="pile-row" id="play-piles">
+    <button id="draw-pile" class="pile-button" type="button" disabled>🂠<br><strong>Draw pile</strong><br><span id="draw-count">—</span></button>
+    <button id="discard-pile" class="pile-button" type="button" disabled>Discard pile<br><span id="discard-top">—</span></button>
+  </div>
+  <div class="game-controls side-controls" id="right-controls">
+    <button id="discard-selected" type="button" disabled>Discard selected card</button>
+    <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
+    <button id="play-skip" type="button" disabled aria-hidden="true">Skip is automatic when discarded</button>
+  </div>
+  <p id="game-message" class="small-note" aria-live="polite">Tap New game to begin. Draw a card, then tap cards to select them. Select all cards for your current phase and tap “Lay down my phase,” or select one card and discard it. Discarding a Skip automatically skips the next player. The computer takes its turn automatically.</p>
+  <h3>Your current phase</h3>
+  <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
+  <h3>Your hand</h3>
+  <div id="human-hand" class="hand"></div>
+  <h3>Computer opponents</h3>
+  <div id="opponent-areas" aria-label="Computer opponents"></div>
+  <h3>Phases laid down</h3>
+  <div id="laid-phases"><p class="small-note">No phases laid down yet.</p></div>
+</section>
+<aside class="board-panel" id="activity-panel" aria-label="Play history">
+  <h2>Play history</h2>
+  <p class="small-note">Newest plays appear at the top.</p>
+  <ol id="activity-list" aria-live="polite"><li class="small-note">Start a new game to begin the history.</li></ol>
+</aside>
+</div>
+
+<section id="instructions-footer" aria-label="How to play">
+  <h2>How to play</h2>
+  <p id="hand-note">Rearrange your cards by dragging one onto another. Tap cards to select them for a phase, hit, or discard.</p>
+  <p id="table-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits. You must keep at least one card to discard.</p>
+  <p>Each turn, draw one card, then lay down a valid phase if you can, hit on a laid phase if eligible, and discard one card. A discarded Skip automatically skips the next player.</p>
+</section>
+
+<script type="module">
+import * as Engine from "./phase10-engine-v25.js";
+
+const out = document.getElementById("results");
+const board = document.getElementById("board");
+const playStatus = document.getElementById("game-status");
+const playMessage = document.getElementById("game-message");
+const humanHand = document.getElementById("human-hand");
+const opponentAreas = document.getElementById("opponent-areas");
+const laidPhases = document.getElementById("laid-phases");
+const drawPileButton = document.getElementById("draw-pile");
+const discardPileButton = document.getElementById("discard-pile");
+const discardSelectedButton = document.getElementById("discard-selected");
+const playSkipButton = document.getElementById("play-skip");
+const layDownPhaseButton = document.getElementById("lay-down-phase");
+const clearSelectionButton = document.getElementById("clear-selection");
+const newGameButton = document.getElementById("new-game");
+let playableGame = null;
+let gameGeneration = 0;
+let selectedCardId = null;
+const selectedPhaseCardIds = new Set();
+let draggedHandCardId = null;
+let activitySequence = 0;
+const activityList = document.getElementById("activity-list");
+const humanId = "ron";
+const computerIds = ["alex", "sophie", "taylor"];
+const computerStyles = { alex: "Strategic", sophie: "Tactical", taylor: "Bold" };
+
+function logActivity(message) {
+  if (!activityList) return;
+  const empty = activityList.querySelector(".small-note");
+  if (empty && activityList.children.length === 1) activityList.replaceChildren();
+  const item = document.createElement("li");
+  item.textContent = message;
+  item.dataset.sequence = String(++activitySequence);
+  item.value = activitySequence; // Keep chronological numbering even though newest events appear first.
+  activityList.prepend(item);
+}
+
+function logRoundScores() {
+  const action = playableGame?.lastAction;
+  if (action?.type !== "roundEnd" || !action.roundScores) return;
+  const scores = action.roundScores;
+  const finisher = playableGame.players.find(p => p.id === action.finisherId)?.name || "A player";
+  const totals = playableGame.players.map(p => `${p.name}: +${scores[p.id] ?? 0} points (total ${p.score ?? 0})`).join("; ");
+  logActivity(`ROUND OVER — ${finisher} went out. ${totals}.`);
+  if (action.nextRoundStart?.openingSkip) {
+    const skipped = playableGame.players.find(p => p.id === action.nextRoundStart.openingSkip.skippedPlayerId);
+    logActivity(`New round: opening discard is a Skip, so ${skipped?.name || "the first player"} loses the opening turn.`);
+  } else if (action.nextRoundStart) {
+    const dealer = playableGame.players.find(p => p.id === action.nextRoundStart.dealerId);
+    const first = playableGame.players.find(p => p.id === action.nextRoundStart.firstPlayerId);
+    logActivity(`New round: ${dealer?.name || "the dealer"} deals; ${first?.name || "the next player"} starts to the dealer's left.`);
+  }
+}
+
+function currentPlayablePlayer() {
+  return playableGame?.players[playableGame.currentPlayerIndex] ?? null;
+}
+
+function phaseDescription(phaseNumber) {
+  const parts = Engine.PHASES[phaseNumber - 1] || [];
+  const labels = parts.map(part => {
+    if (part.type === "set") return `set of ${part.count}`;
+    if (part.type === "run") return `run of ${part.count}`;
+    return `${part.count} cards of one color`;
+  });
+  const phrase = labels.length === 2 ? `${labels[0]} and ${labels[1]}` : (labels[0] || "unknown phase");
+  return `Phase ${phaseNumber} — ${phrase}`;
+}
+
+function playableCardElement(card, selectable = false) {
+  const el = cardElement(card);
+  if (selectable) {
+    const button = document.createElement("button");
+    button.type = "button";
+    const isSelected = selectedPhaseCardIds.has(card.id);
+    button.className = el.className + (isSelected ? " selected" : "");
+    button.setAttribute("aria-pressed", String(isSelected));
+    button.setAttribute("aria-label", `${cardLabel(card)} ${card.color || card.type}. Drag to reorder.`);
+    button.setAttribute("draggable", "true");
+    button.dataset.handCard = "true";
+    button.dataset.cardId = card.id;
+    button.addEventListener("dragstart", event => {
+      draggedHandCardId = card.id;
+      button.classList.add("dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", card.id);
+      }
+    });
+    button.addEventListener("dragend", () => {
+      draggedHandCardId = null;
+      button.classList.remove("dragging");
+      humanHand.querySelectorAll(".drag-over").forEach(node => node.classList.remove("drag-over"));
+    });
+    button.addEventListener("dragover", event => {
+      if (!draggedHandCardId || draggedHandCardId === card.id) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      button.classList.add("drag-over");
+    });
+    button.addEventListener("dragleave", () => button.classList.remove("drag-over"));
+    button.addEventListener("drop", event => {
+      event.preventDefault();
+      button.classList.remove("drag-over");
+      const fromId = draggedHandCardId || event.dataTransfer?.getData("text/plain");
+      const toId = card.id;
+      if (!fromId || fromId === toId || !playableGame) return;
+      const hand = playableGame.players.find(p => p.id === humanId).hand;
+      const fromIndex = hand.findIndex(item => item.id === fromId);
+      const toIndex = hand.findIndex(item => item.id === toId);
+      if (fromIndex < 0 || toIndex < 0) return;
+      const [moved] = hand.splice(fromIndex, 1);
+      hand.splice(toIndex, 0, moved);
+      draggedHandCardId = null;
+      playMessage.textContent = "Hand reordered. Your card selections are unchanged.";
+      renderPlayableGame();
+    });
+    const value = document.createElement("div");
+    value.className = "card-value";
+    value.textContent = cardLabel(card);
+    const suit = document.createElement("div");
+    suit.className = "card-color";
+    suit.textContent = card.type === "number" ? card.color : "Phase 10";
+    button.append(value, suit);
+    button.addEventListener("click", () => {
+      if (!playableGame || currentPlayablePlayer()?.id !== humanId || playableGame.turnStage !== "action") return;
+      if (selectedPhaseCardIds.has(card.id)) selectedPhaseCardIds.delete(card.id);
+      else selectedPhaseCardIds.add(card.id);
+      selectedCardId = selectedPhaseCardIds.size === 1 ? [...selectedPhaseCardIds][0] : null;
+      renderPlayableGame();
+    });
+    return button;
+  }
+  return el;
+}
+
+function renderPlayableGame() {
+  if (!playableGame) return;
+  const player = playableGame.players.find(p => p.id === humanId);
+  const current = currentPlayablePlayer();
+  const isHumanTurn = current?.id === humanId && playableGame.status === "playing";
+  playStatus.textContent = `Round ${playableGame.roundNumber} · ${playableGame.status === "finished" ? "Game finished" : `${current?.name || "—"}’s turn`} · ${playableGame.turnStage === "draw" ? "Draw a card" : "Select cards to lay down a phase or discard one card"} · Phase ${player.phase}${player.laidPhase ? " · Phase laid down" : ""}`;
+  humanHand.replaceChildren();
+  player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
+  if (!player.hand.length) humanHand.textContent = "No cards in hand.";
+  document.getElementById("human-phase-label").textContent = `Ron: ${phaseDescription(player.phase)} · Score ${player.score}${player.laidPhase ? " · laid down" : ""}`;
+  opponentAreas.replaceChildren();
+  playableGame.players.filter(p => p.kind === "computer").forEach(opponent => {
+    const area = document.createElement("section");
+    area.className = "opponent-card" + (current?.id === opponent.id ? " active" : "");
+    const name = document.createElement("p");
+    name.className = "opponent-name";
+    name.textContent = `${opponent.name}${current?.id === opponent.id ? " · Playing" : ""}`;
+    const meta = document.createElement("p");
+    meta.className = "opponent-meta";
+    meta.textContent = `${computerStyles[opponent.id] || "Computer"} · ${opponent.hand.length} cards · Phase ${opponent.phase} · Score ${opponent.score}${opponent.laidPhase ? " · laid down" : ""}`;
+
+    const hand = document.createElement("div");
+    hand.className = "opponent-hand";
+    hand.setAttribute("aria-label", `${opponent.name}'s face-down cards`);
+
+  opponent.hand.forEach(() => {
+  const back = document.createElement("div");
+  back.className = "playing-card card-back";
+  back.textContent = "10";
+  back.setAttribute("aria-label", "Face-down card");
+  hand.appendChild(back);
+});
+
+if (!opponent.hand.length) hand.textContent = "No cards";
+    area.append(name, meta, hand);
+    opponentAreas.appendChild(area);
+  });
+
+  // Show each player's laid-down phase groups and provide a direct hit action.
+  laidPhases.replaceChildren();
+  const playersWithPhases = playableGame.players.filter(p => p.laidPhase && p.tableau?.length);
+  if (!playersWithPhases.length) {
+    const empty = document.createElement("p");
+    empty.className = "small-note";
+    empty.textContent = "No phases laid down yet.";
+    laidPhases.appendChild(empty);
+  } else {
+    playersWithPhases.forEach(targetPlayer => {
+      const playerSection = document.createElement("div");
+      playerSection.className = "tableau-player";
+      const heading = document.createElement("h4");
+      heading.textContent = `${targetPlayer.name}'s Phase ${targetPlayer.phase}`;
+      playerSection.appendChild(heading);
+      const groups = document.createElement("div");
+      groups.className = "tableau";
+      targetPlayer.tableau.forEach((group, groupIndex) => {
+        const groupBox = document.createElement("div");
+        groupBox.className = "tableau-group";
+        const label = document.createElement("div");
+        label.className = "tableau-label";
+        label.textContent = `${group.type === "set" ? "Set" : group.type === "run" ? "Run" : "Color group"} · ${group.cards.length} cards`;
+        const cards = document.createElement("div");
+        cards.className = "hand";
+        renderCards(cards, group.cards || []);
+        const hitButton = document.createElement("button");
+        hitButton.type = "button";
+        hitButton.className = "hit-button";
+        hitButton.textContent = "Hit with selected card";
+        hitButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || !player.laidPhase || selectedPhaseCardIds.size !== 1;
+        hitButton.addEventListener("click", () => hitHumanCard(targetPlayer.id, groupIndex));
+        groupBox.append(label, cards, hitButton);
+        groups.appendChild(groupBox);
+      });
+      playerSection.appendChild(groups);
+      laidPhases.appendChild(playerSection);
+    });
+  }
+
+  document.getElementById("draw-count").textContent = `${playableGame.drawPile.length} cards`;
+  const top = playableGame.discardPile.at(-1);
+  const discardTop = document.getElementById("discard-top");
+  discardTop.replaceChildren();
+  if (top) discardTop.appendChild(cardElement(top));
+  else discardTop.textContent = "Empty";
+  drawPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw";
+  discardPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw" || !top;
+  discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
+  const selectedCard = selectedPhaseCardIds.size === 1 ? player.hand.find(c => c.id === [...selectedPhaseCardIds][0]) : null;
+  playSkipButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type !== "skip";
+  layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0 || selectedPhaseCardIds.size >= player.hand.length;
+  clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
+
+}
+
+function startPlayableGame() {
+  gameGeneration++;
+  playableGame = Engine.createGame([
+    { id: humanId, name: "Ron", kind: "human" },
+    { id: "alex", name: "Alex", kind: "computer" },
+    { id: "sophie", name: "Sophie", kind: "computer" },
+    { id: "taylor", name: "Taylor", kind: "computer" }
+  ]);
+  selectedCardId = null;
+  selectedPhaseCardIds.clear();
+  activitySequence = 0;
+  activityList.replaceChildren();
+  logActivity("New four-player game started. Ron, Alex, Sophie, and Taylor are playing.");
+  if (playableGame.lastAction?.type === "openingSkip") {
+    const skipped = playableGame.players.find(p => p.id === playableGame.lastAction.skippedPlayerId);
+    logActivity(`Opening discard was a Skip. ${skipped?.name || "The first player"} loses the opening turn.`);
+  } else {
+    const dealer = playableGame.players[playableGame.dealerIndex];
+    const first = currentPlayablePlayer();
+    logActivity(`${dealer?.name || "The dealer"} deals first; ${first?.name || "The next player"} starts to the dealer's left.`);
+  }
+  playMessage.textContent = "Draw a card, then select cards for your phase and tap Lay down my phase, or select one card and discard it. Alex, Sophie, and Taylor will play automatically.";
+  renderPlayableGame();
+  scheduleComputerTurn();
+}
+
+function waitForCardBeat(ms = 180) {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function animateCardFlight(card, fromElement, toElement, faceDown = false) {
+  if (!fromElement || !toElement || !fromElement.getBoundingClientRect || !toElement.getBoundingClientRect) {
+    return Promise.resolve();
+  }
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+  const from = fromElement.getBoundingClientRect();
+  const to = toElement.getBoundingClientRect();
+  if (!from.width || !from.height || !to.width || !to.height) return Promise.resolve();
+
+  const ghost = faceDown ? document.createElement('div') : cardElement(card);
+  if (faceDown) {
+    ghost.className = 'playing-card card-back';
+    ghost.textContent = '10';
+  }
+  ghost.classList.add('card-flight');
+  const width = Math.min(64, Math.max(42, from.width * .72));
+  const height = width * 1.42;
+  const startX = from.left + from.width / 2 - width / 2;
+  const startY = from.top + from.height / 2 - height / 2;
+  const endX = to.left + to.width / 2 - width / 2;
+  const endY = to.top + to.height / 2 - height / 2;
+  Object.assign(ghost.style, { left: `${startX}px`, top: `${startY}px`, width: `${width}px`, minHeight: `${height}px` });
+  document.body.appendChild(ghost);
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const animation = ghost.animate([
+    { transform: 'translate3d(0,0,0) rotateX(4deg) rotateY(-8deg) rotateZ(-3deg) scale(.88)', offset: 0, opacity: 1 },
+    { transform: `translate3d(${dx * .52}px,${dy * .52 - 42}px,90px) rotateX(-12deg) rotateY(18deg) rotateZ(8deg) scale(1.12)`, offset: .55, opacity: 1 },
+    { transform: `translate3d(${dx}px,${dy}px,0) rotateX(2deg) rotateY(0deg) rotateZ(0deg) scale(.96)`, offset: 1, opacity: .96 }
+  ], { duration: 720, easing: 'cubic-bezier(.2,.72,.25,1)', fill: 'forwards' });
+  return animation.finished.catch(() => {}).then(() => ghost.remove());
+}
+
+async function drawPlayableCard(source) {
+  if (!playableGame) return;
+  const actionGeneration = gameGeneration;
+  try {
+    const sourceNode = source === "draw" ? drawPileButton : discardPileButton;
+    const visibleTop = playableGame.discardPile.at(-1);
+    await animateCardFlight(visibleTop, sourceNode, humanHand, source === "draw");
+    if (actionGeneration !== gameGeneration || !playableGame) return;
+    const drawn = Engine.drawCard(playableGame, humanId, source);
+    logActivity(`Ron drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the ${source === "draw" ? "draw" : "discard"} pile.`);
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    playMessage.textContent = `You drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}. Select the cards for Phase ${playableGame.players.find(p => p.id === humanId).phase} and tap Lay down my phase, or select one card to discard.`;
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+function cardKeepValue(card, hand, playerId) {
+  if (card.type === "wild") return 7;
+  if (card.type === "skip") return 0.5;
+  const sameNumber = hand.filter(c => c.id !== card.id && c.type === "number" && c.number === card.number).length;
+  const sameColor = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color).length;
+  const neighbors = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color && Math.abs(c.number - card.number) === 1).length;
+  const phase = playableGame?.players.find(p => p.id === playerId)?.phase ?? 1;
+  let value = sameNumber * 3.2 + neighbors * 2.2;
+  if (phase === 8) value += sameColor * 1.15;
+  else value += sameColor * 0.15;
+  // Mid-range numbers are a little easier to use in runs than edge numbers.
+  if (card.number >= 3 && card.number <= 10) value += 0.25;
+  return value;
+}
+
+function findComputerPhaseCards(hand, phaseNumber) {
+  const expected = (Engine.PHASES[phaseNumber - 1] || []).reduce((sum, part) => sum + part.count, 0);
+  if (!expected || hand.length < expected) return null;
+  const choose = (start, needed, chosen) => {
+    if (chosen.length === needed) {
+      try {
+        Engine.validatePhase(chosen, phaseNumber);
+        return chosen.map(card => card.id);
+      } catch (_) { return null; }
+    }
+    for (let i = start; i <= hand.length - (needed - chosen.length); i++) {
+      chosen.push(hand[i]);
+      const result = choose(i + 1, needed, chosen);
+      chosen.pop();
+      if (result) return result;
+    }
+    return null;
+  };
+  // Prefer laying down more cards when a legal extended set/run is available.
+  for (let size = hand.length; size >= expected; size--) {
+    const result = choose(0, size, []);
+    if (result) return result;
+  }
+  return null;
+}
+
+function computerHitAllPossible(playerId, preferredCardId = null) {
+  const computer = playableGame.players.find(p => p.id === playerId);
+  if (!computer.laidPhase || computer.hand.length <= 1) return [];
+  const actions = [];
+  let changed = true;
+  while (changed && computer.hand.length > 1) {
+    changed = false;
+    for (const target of playableGame.players) {
+      if (!target.laidPhase || !target.tableau) continue;
+      for (let groupIndex = 0; groupIndex < target.tableau.length; groupIndex++) {
+        const group = target.tableau[groupIndex];
+        const candidateCards = [...computer.hand].sort((a, b) => {
+          if (a.id === preferredCardId) return -1;
+          if (b.id === preferredCardId) return 1;
+          return 0;
+        });
+        for (const card of candidateCards) {
+          if (computer.hand.length <= 1) break;
+          try {
+            Engine.hitOnTable(playableGame, playerId, target.id, groupIndex, card.id);
+            actions.push(`${cardLabel(card)} on ${target.name}'s ${group.type}`);
+            changed = true;
+            break;
+          } catch (_) { /* This card does not fit this group. */ }
+        }
+      }
+    }
+  }
+  return actions;
+}
+
+function computerCanHitWithCard(card, playerId) {
+  if (!playableGame || !card) return false;
+  const testGame = JSON.parse(JSON.stringify(playableGame));
+  const testPlayer = testGame.players.find(p => p.id === playerId);
+  if (!testPlayer?.laidPhase) return false;
+  // Simulate taking the discard into the hand so the engine can validate the hit
+  // against exactly the same rules used for real moves.
+  testPlayer.hand.push(JSON.parse(JSON.stringify(card)));
+  testGame.discardPile = testGame.discardPile.filter((item, index, pile) => index !== pile.length - 1);
+  testGame.turnStage = "action";
+  for (const target of testGame.players) {
+    if (!target.laidPhase || !target.tableau) continue;
+    for (let groupIndex = 0; groupIndex < target.tableau.length; groupIndex++) {
+      try {
+        Engine.hitOnTable(testGame, playerId, target.id, groupIndex, card.id);
+        return true;
+      } catch (_) { /* Try another table group. */ }
+    }
+  }
+  return false;
+}
+
+function scheduleComputerTurn() {
+  if (!playableGame || playableGame.status !== "playing") return;
+  const current = currentPlayablePlayer();
+  if (current?.kind === "computer") {
+    window.setTimeout(() => computerTurn(current.id), 1300);
+  }
+}
+
+async function computerTurn(playerId) {
+  const turnGeneration = gameGeneration;
+  if (!playableGame || playableGame.status !== "playing" || currentPlayablePlayer()?.id !== playerId) return;
+  const computer = playableGame.players.find(p => p.id === playerId);
+  if (!computer || computer.kind !== "computer") return;
+  try {
+    const top = playableGame.discardPile.at(-1);
+    const currentHand = computer.hand;
+    const topValue = top ? cardKeepValue(top, currentHand, playerId) : -1;
+    const weakestExisting = currentHand.length
+      ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand, playerId)))
+      : -1;
+    const discardIsImmediateHit = !!(top && computerCanHitWithCard(top, playerId));
+    // Sophie is more willing to take a useful discard for a hit; Taylor favors drawing.
+    const personalityBias = playerId === "sophie" && discardIsImmediateHit ? 0.2
+      : playerId === "taylor" ? 0.5 : 0.8;
+    const source = top && (discardIsImmediateHit || topValue >= weakestExisting + personalityBias) ? "discard" : "draw";
+    const computerArea = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(playerId) + 1}) .opponent-hand`);
+    await animateCardFlight(top, source === "draw" ? drawPileButton : discardPileButton, computerArea || opponentAreas, source === "draw");
+    if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
+    const drawn = Engine.drawCard(playableGame, playerId, source);
+    renderPlayableGame();
+    await waitForCardBeat(380);
+    logActivity(source === "draw"
+      ? `${computer.name} drew a face-down card from the draw pile.`
+      : `${computer.name} picked ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the discard pile.`);
+    let phaseMessage = "";
+    if (!computer.laidPhase) {
+      const phaseIds = findComputerPhaseCards(computer.hand, computer.phase);
+      if (phaseIds) {
+        const phaseNumber = computer.phase;
+        Engine.layDownPhase(playableGame, playerId, phaseIds);
+        logActivity(`${computer.name.toUpperCase()} LAID DOWN PHASE: ${phaseDescription(phaseNumber)}.`);
+        phaseMessage = ` and laid down ${phaseDescription(phaseNumber)}`;
+      }
+    }
+    const hits = computerHitAllPossible(playerId, discardIsImmediateHit ? drawn.id : null);
+    if (hits.length) { phaseMessage += `, then hit ${hits.join(", ")}`; logActivity(`${computer.name} hit ${hits.join("; ")}.`); }
+    const handAfterDraw = computer.hand;
+    const discard = handAfterDraw.reduce((worst, card) => {
+      if (!worst) return card;
+      const score = cardKeepValue(card, handAfterDraw, playerId);
+      const worstScore = cardKeepValue(worst, handAfterDraw, playerId);
+      if (score < worstScore) return card;
+      if (score === worstScore && card.type === "number" && worst.type === "number" && card.number > worst.number) return card;
+      return worst;
+    }, null);
+    if (!discard) throw new Error(`${computer.name} couldn't choose a discard.`);
+    const opponentHandNode = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(playerId) + 1}) .opponent-hand`);
+    await animateCardFlight(discard, opponentHandNode || opponentAreas, discardPileButton, false);
+    if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
+    Engine.discardCard(playableGame, playerId, discard.id);
+    if (discard.type === "skip" && playableGame.status === "playing") {
+      const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
+      logActivity(`${computer.name} discarded a SKIP. ${skippedName} is automatically skipped.`);
+    } else {
+      logActivity(`${computer.name} discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}.`);
+    }
+    logRoundScores();
+    const sourceLabel = source === "discard"
+      ? (discardIsImmediateHit ? "the discard pile (a legal hit)" : "the discard pile")
+      : "the draw pile";
+    if (playableGame.status === "finished") {
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage}, discarded ${cardLabel(discard)}, and won the game!`;
+    } else if (playableGame.lastAction.type === "roundEnd") {
+      const scoreSummary = playableGame.players.map(p => `${p.name}: ${playableGame.lastAction.roundScores?.[p.id] ?? 0}`).join(", ");
+      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage} and discarded ${cardLabel(discard)}. Round over — ${scoreSummary} points.`;
+    } else {
+      playMessage.textContent = `${computer.name} took ${sourceLabel}, drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}${phaseMessage}, and discarded ${cardLabel(discard)}.`;
+    }
+  } catch (error) {
+    playMessage.textContent = `${computer.name}'s turn stopped: ${error.message}`;
+    logActivity(`${computer.name}'s turn error: ${error.message}`);
+  }
+  selectedCardId = null;
+  selectedPhaseCardIds.clear();
+  renderPlayableGame();
+  scheduleComputerTurn();
+}
+
+async function layDownHumanPhase() {
+  if (!playableGame || selectedPhaseCardIds.size === 0) return;
+  const actionGeneration = gameGeneration;
+  try {
+    const ids = [...selectedPhaseCardIds];
+    const phaseBefore = playableGame.players.find(p => p.id === humanId).phase;
+    const firstPhaseCard = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === ids[0]);
+    const firstPhaseNode = humanHand.querySelector(`[data-card-id="${ids[0]}"]`);
+    await animateCardFlight(firstPhaseCard, firstPhaseNode || humanHand, laidPhases, false);
+    if (actionGeneration !== gameGeneration || !playableGame) return;
+    Engine.layDownPhase(playableGame, humanId, ids);
+    logActivity(`RON LAID DOWN PHASE: ${phaseDescription(phaseBefore)}.`);
+    selectedPhaseCardIds.clear();
+    selectedCardId = null;
+    const player = playableGame.players.find(p => p.id === humanId);
+    playMessage.textContent = `Great! You laid down Phase ${player.phase}. Select one remaining card to discard and finish your turn.`;
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+async function hitHumanCard(targetPlayerId, targetGroupIndex) {
+  if (!playableGame || selectedPhaseCardIds.size !== 1) return;
+  const actionGeneration = gameGeneration;
+  const cardId = [...selectedPhaseCardIds][0];
+  try {
+    const card = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === cardId);
+    const target = playableGame.players.find(p => p.id === targetPlayerId);
+    const sourceNode = humanHand.querySelector(`[data-card-id="${cardId}"]`);
+    await animateCardFlight(card, sourceNode || humanHand, laidPhases, false);
+    if (actionGeneration !== gameGeneration || !playableGame) return;
+    Engine.hitOnTable(playableGame, humanId, targetPlayerId, targetGroupIndex, cardId);
+    logActivity(`Ron hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase.`);
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    playMessage.textContent = `You hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase. Select another card to hit again or discard one card to finish your turn.`;
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+function playHumanSkip() {
+  // Legacy handler retained for compatibility; the button is hidden in V20 because Skip is automatic on discard.
+  if (!playableGame || selectedPhaseCardIds.size !== 1) return;
+  const cardId = [...selectedPhaseCardIds][0];
+  const player = playableGame.players.find(p => p.id === humanId);
+  const card = player.hand.find(c => c.id === cardId);
+  if (card?.type !== "skip") {
+    playMessage.textContent = "Select a Skip card first.";
+    return;
+  }
+  try {
+    const targetId = playableGame.players[(playableGame.currentPlayerIndex + 1) % playableGame.players.length].id;
+    Engine.playSkip(playableGame, humanId, targetId, cardId);
+    logActivity(`Ron played a SKIP on ${playableGame.players.find(p => p.id === targetId)?.name}.`);
+    logRoundScores();
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    if (playableGame.lastAction.type === "roundEnd") {
+      const points = playableGame.lastAction.roundScores?.[humanId] ?? 0;
+      playMessage.textContent = `You played a Skip on the computer. The round ended; you received ${points} points for cards left in your hand.`;
+      renderPlayableGame();
+      return;
+    }
+    playMessage.textContent = "You played a Skip card. The next player loses their turn.";
+    renderPlayableGame();
+    if (playableGame.status === "playing" && currentPlayablePlayer()?.kind === "computer") scheduleComputerTurn();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+async function discardPlayableCard() {
+  if (!playableGame || selectedPhaseCardIds.size !== 1 || !selectedCardId) return;
+  const actionGeneration = gameGeneration;
+  try {
+    const discarded = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === selectedCardId);
+    const sourceNode = humanHand.querySelector(`[data-card-id="${selectedCardId}"]`);
+    await animateCardFlight(discarded, sourceNode || humanHand, discardPileButton, false);
+    if (actionGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== humanId) return;
+    Engine.discardCard(playableGame, humanId, selectedCardId);
+    if (discarded?.type === "skip" && playableGame.status === "playing") {
+      const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
+      logActivity(`Ron discarded a SKIP. ${skippedName} is automatically skipped.`);
+    } else {
+      logActivity(`Ron discarded ${cardLabel(discarded)}${discarded?.color ? " " + discarded.color : ""}.`);
+    }
+    logRoundScores();
+    selectedCardId = null;
+    selectedPhaseCardIds.clear();
+    if (playableGame.status === "finished") {
+      playMessage.textContent = `${playableGame.players.find(p => p.id === playableGame.winnerId)?.name || "A player"} wins the game!`;
+    } else {
+      const current = currentPlayablePlayer();
+      if (discarded?.type === "skip") {
+        const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
+        playMessage.textContent = `You discarded a Skip. ${skippedName} was automatically skipped.`;
+      } else {
+        playMessage.textContent = `You discarded ${cardLabel(discarded)}. ${current?.name || "Next player"} is taking their turn…`;
+      }
+      renderPlayableGame();
+      scheduleComputerTurn();
+      return;
+    }
+    renderPlayableGame();
+  } catch (error) {
+    playMessage.textContent = error.message;
+  }
+}
+
+newGameButton.addEventListener("click", startPlayableGame);
+drawPileButton.addEventListener("click", () => drawPlayableCard("draw"));
+discardPileButton.addEventListener("click", () => drawPlayableCard("discard"));
+discardSelectedButton.addEventListener("click", discardPlayableCard);
+playSkipButton.addEventListener("click", playHumanSkip);
+layDownPhaseButton.addEventListener("click", layDownHumanPhase);
+clearSelectionButton.addEventListener("click", () => { selectedCardId = null; selectedPhaseCardIds.clear(); renderPlayableGame(); });
+
+
+function log(message, cls = "") {
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = message;
+  out.appendChild(line);
+}
+
+function cardLabel(card) {
+  if (!card) return "—";
+  if (card.type === "wild") return "WILD";
+  if (card.type === "skip") return "SKIP";
+  return String(card.number ?? "?");
+}
+
+function cardElement(card) {
+  const el = document.createElement("div");
+  const color = card.type === "number" ? (card.color || "red") : "special";
+  el.className = "playing-card card-" + color;
+  const value = document.createElement("div");
+  value.className = "card-value";
+  value.textContent = cardLabel(card);
+  const suit = document.createElement("div");
+  suit.className = "card-color";
+  suit.textContent = card.type === "number" ? (card.color || "") : "Phase 10";
+  el.append(value, suit);
+  el.title = card.type === "number" ? `${card.number} ${card.color}` : card.type;
+  return el;
+}
+
+function renderCards(container, cards) {
+  container.className = "hand";
+  if (!cards || !cards.length) {
+    const empty = document.createElement("span");
+    empty.className = "small-note";
+    empty.textContent = "No cards";
+    container.appendChild(empty);
+    return;
+  }
+  cards.forEach(card => container.appendChild(cardElement(card)));
+}
+
+function renderGame(game, caption = "Latest game snapshot") {
+  board.replaceChildren();
+  const heading = document.createElement("section");
+  heading.className = "board-panel shared-panel";
+  const h = document.createElement("h2");
+  h.textContent = caption;
+  const summary = document.createElement("div");
+  summary.className = "player-meta";
+  const current = game.players[game.currentPlayerIndex];
+  summary.textContent = `Round ${game.roundNumber ?? 1} · ${game.status || "playing"} · Current player: ${current ? current.name : "—"} · Stage: ${game.turnStage || "—"}`;
+  heading.append(h, summary);
+  board.appendChild(heading);
+
+  game.players.forEach(player => {
+    const panel = document.createElement("section");
+    panel.className = "board-panel player-panel";
+    const title = document.createElement("h2");
+    title.textContent = player.name;
+    const meta = document.createElement("div");
+    meta.className = "player-meta";
+    meta.textContent = `Phase ${player.phase ?? 1} · Score ${player.score ?? 0} · ${player.hand.length} cards in hand${player.laidPhase ? " · Phase laid down" : ""}`;
+    const handTitle = document.createElement("div");
+    handTitle.className = "tableau-label";
+    handTitle.textContent = "Hand";
+    const hand = document.createElement("div");
+    renderCards(hand, player.hand);
+    panel.append(title, meta, handTitle, hand);
+
+    if (player.tableau && player.tableau.length) {
+      const tableTitle = document.createElement("div");
+      tableTitle.className = "tableau-label";
+      tableTitle.style.marginTop = "12px";
+      tableTitle.textContent = "Cards on the table";
+      const groups = document.createElement("div");
+      groups.className = "tableau";
+      player.tableau.forEach((group, index) => {
+        const groupBox = document.createElement("div");
+        groupBox.className = "tableau-group";
+        const label = document.createElement("div");
+        label.className = "tableau-label";
+        label.textContent = group.type || `Group ${index + 1}`;
+        const cards = document.createElement("div");
+        renderCards(cards, group.cards || []);
+        groupBox.append(label, cards);
+        groups.appendChild(groupBox);
+      });
+      panel.append(tableTitle, groups);
+    }
+    board.appendChild(panel);
+  });
+
+  const shared = document.createElement("section");
+  shared.className = "board-panel shared-panel";
+  const sharedTitle = document.createElement("h2");
+  sharedTitle.textContent = "Draw and discard piles";
+  const pileRow = document.createElement("div");
+  pileRow.className = "pile-row";
+  const drawInfo = document.createElement("div");
+  drawInfo.innerHTML = `<strong>Draw pile</strong><br>${(game.drawPile || []).length} cards left`;
+  const discardInfo = document.createElement("div");
+  discardInfo.style.marginLeft = "16px";
+  const topDiscard = (game.discardPile || []).at(-1);
+  discardInfo.append("Discard pile: ");
+  discardInfo.append(document.createTextNode(`${(game.discardPile || []).length} cards`));
+  if (topDiscard) {
+    discardInfo.append(document.createElement("br"));
+    discardInfo.append("Top discard: ");
+    discardInfo.appendChild(cardElement(topDiscard));
+  }
+  pileRow.append(drawInfo, discardInfo);
+  shared.append(sharedTitle, pileRow);
+  board.appendChild(shared);
+}
+
+function reset() {
+  out.replaceChildren();
+}
+
+function assert(name, condition) {
+  log(
+    (condition ? "PASS: " : "FAIL: ") + name,
+    condition ? "pass" : "fail"
+  );
+  return !!condition;
+}
+
+function num(number, color = "red", id) {
+  return {
+    id: id || "n" + Math.random().toString(36).slice(2),
+    type: "number",
+    number,
+    color
+  };
+}
+
+function wild(id) {
+  return {
+    id: id || "w" + Math.random().toString(36).slice(2),
+    type: "wild",
+    number: null,
+    color: null
+  };
+}
+
+function players() {
+  return [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+}
+
+function validPhase(cards, phaseNumber) {
+  try {
+    Engine.validatePhase(cards, phaseNumber);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function runTests() {
+  reset();
+
+  let passed = 0;
+  let total = 0;
+
+  function test(name, fn) {
+    total++;
+    try {
+      if (assert(name, fn())) passed++;
+    } catch (error) {
+      assert(name + " — " + error.message, false);
+    }
+  }
+
+  test("Deck contains 108 cards", () =>
+    Engine.createDeck().length === 108
+  );
+
+  test("Deck has 96 number cards", () =>
+    Engine.createDeck().filter(c => c.type === "number").length === 96
+  );
+
+  test("Deck has 8 wild cards", () =>
+    Engine.createDeck().filter(c => c.type === "wild").length === 8
+  );
+
+  test("Deck has 4 skip cards", () =>
+    Engine.createDeck().filter(c => c.type === "skip").length === 4
+  );
+
+  test("Computer going out adds the user's leftover-card points", () => {
+    const game = Engine.createGame(players());
+    const ron = game.players.find(p => p.id === "ron");
+    const computer = game.players.find(p => p.id === "computer");
+    ron.hand = [
+      { id: "ron-a", type: "number", number: 2, color: "red" },
+      { id: "ron-b", type: "number", number: 10, color: "blue" },
+      { id: "ron-c", type: "skip" }
+    ];
+    computer.hand = [{ id: "computer-last", type: "number", number: 4, color: "green" }];
+    game.currentPlayerIndex = game.players.indexOf(computer);
+    game.turnStage = "action";
+    const previousRonScore = ron.score;
+    Engine.discardCard(game, "computer", "computer-last");
+    return game.lastAction.type === "roundEnd"
+      && game.lastAction.finisherId === "computer"
+      && game.lastAction.roundScores.ron === 30
+      && ron.score === previousRonScore + 30;
+  });
+
+  test("Computer going out with Skip still scores the user's hand", () => {
+    const game = Engine.createGame(players());
+    const ron = game.players.find(p => p.id === "ron");
+    const computer = game.players.find(p => p.id === "computer");
+    ron.hand = [{ id: "ron-wild", type: "wild" }];
+    computer.hand = [{ id: "computer-skip", type: "skip" }];
+    game.currentPlayerIndex = game.players.indexOf(computer);
+    game.turnStage = "action";
+    Engine.playSkip(game, "computer", "ron", "computer-skip");
+    return game.lastAction.type === "roundEnd"
+      && game.lastAction.roundScores.ron === 25
+      && ron.score === 25;
+  });
+
+  test("Phase 1 accepts two sets of three", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a set of four plus a set of three (7 cards)", () =>
+    validPhase([
+      num(5, "red", "a1"),
+      num(5, "blue", "a2"),
+      num(5, "green", "a3"),
+      num(5, "yellow", "a4"),
+      num(9, "red", "b1"),
+      num(9, "blue", "b2"),
+      num(9, "green", "b3")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a longer set when a fourth matching card is included (7 cards)", () =>
+    validPhase([
+      num(5, "red", "c1"),
+      num(5, "blue", "c2"),
+      num(5, "green", "c3"),
+      num(5, "yellow", "c4"),
+      num(9, "red", "d1"),
+      num(9, "blue", "d2"),
+      num(9, "green", "d3")
+    ], 1)
+  );
+
+  test("Phase 1 accepts a wild in a set", () =>
+    validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      wild("c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects an invalid set", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(8, "blue", "b"),
+      num(7, "green", "c"),
+      num(9, "red", "d"),
+      num(9, "blue", "e"),
+      num(9, "green", "f")
+    ], 1)
+  );
+
+  test("Phase 1 rejects the wrong number of cards", () =>
+    !validPhase([
+      num(7, "red", "a"),
+      num(7, "blue", "b"),
+      num(7, "green", "c")
+    ], 1)
+  );
+
+  test("Phase 8 accepts seven cards of one color", () =>
+    validPhase([
+      num(1, "blue", "a"),
+      num(2, "blue", "b"),
+      num(3, "blue", "c"),
+      num(4, "blue", "d"),
+      num(5, "blue", "e"),
+      num(6, "blue", "f"),
+      num(7, "blue", "g")
+    ], 8)
+  );
+
+  test("Game starts with 10 cards per player", () => {
+    const game = Engine.createGame(players());
+
+    return game.players.every(p => p.hand.length === 10)
+      && game.status === "playing";
+  });
+
+  test("Game begins ready for a draw", () => {
+    const game = Engine.createGame(players());
+
+    return game.turnStage === "draw"
+      && game.players.length === 2;
+  });
+
+  test("Drawing a card advances the turn stage", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    return game.turnStage === "action"
+      && player.hand.length === 11;
+  });
+
+  test("Drawing and discarding advances to the next player", () => {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    Engine.drawCard(game, player.id);
+
+    const card = player.hand[0];
+
+    Engine.discardCard(game, player.id, card.id);
+
+    return game.currentPlayerIndex !== 0
+      && game.turnStage === "draw";
+  });
+
+  log("", "");
+  log(
+    `${passed} of ${total} tests passed.`,
+    passed === total ? "pass" : "fail"
+  );
+}
+
+function dealSample() {
+  try {
+    const game = Engine.createGame(players());
+
+    reset();
+    renderGame(game, "Sample game — all dealt cards visible");
+    log("Sample game created successfully.", "pass");
+
+    game.players.forEach(player => {
+      log(`${player.name}: ${player.hand.length} cards; phase ${player.phase}`);
+    });
+
+    log("Draw pile: " + game.drawPile.length + " cards");
+    log("Discard pile: " + game.discardPile.length + " card");
+    log("Current player: " +
+      game.players[game.currentPlayerIndex].name);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testTurn() {
+  try {
+    const game = Engine.createGame(players());
+    const player = game.players[game.currentPlayerIndex];
+
+    const before = player.hand.length;
+
+    const drawn = Engine.drawCard(game, player.id);
+    const cardToDiscard = player.hand[0];
+
+    Engine.discardCard(game, player.id, cardToDiscard.id);
+
+    reset();
+    renderGame(game, "After the turn test");
+    log("Turn test completed.", "pass");
+    log("Cards before turn: " + before);
+    log("Card drawn: " + JSON.stringify(drawn));
+    log("Cards after discarding: " + player.hand.length);
+    log("Next player: " +
+      game.players[game.currentPlayerIndex].name);
+    log("Turn stage: " + game.turnStage);
+  } catch (error) {
+    reset();
+    log("ERROR: " + error.message, "fail");
+  }
+}
+
+function testPhase1() {
+  reset();
+
+  const validCards = [
+    num(7, "red", "a"),
+    num(7, "blue", "b"),
+    num(7, "green", "c"),
+    num(9, "red", "d"),
+    num(9, "blue", "e"),
+    num(9, "green", "f")
+  ];
+
+  assert(
+    "Two sets of three are valid for Phase 1",
+    validPhase(validCards, 1)
+  );
+
+  const invalidCards = [
+    num(7, "red", "g"),
+    num(8, "blue", "h"),
+    num(7, "green", "i"),
+    num(9, "red", "j"),
+    num(9, "blue", "k"),
+    num(9, "green", "l")
+  ];
+
+  assert(
+    "A mismatched set is rejected",
+    !validPhase(invalidCards, 1)
+  );
+
+  const wildCards = [
+    num(7, "red", "m"),
+    num(7, "blue", "n"),
+    wild("o"),
+    num(9, "red", "p"),
+    num(9, "blue", "q"),
+    num(9, "green", "r")
+  ];
+
+  assert(
+    "A wild card can complete a set",
+    validPhase(wildCards, 1)
+  );
+}
+
+function testLayDownPhase1() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  // Give Ron a known Phase 1: two sets of three.
+  const phaseCards = [
+    { id: "a", type: "number", color: "red", number: 5 },
+    { id: "b", type: "number", color: "blue", number: 5 },
+    { id: "c", type: "number", color: "green", number: 5 },
+    { id: "d", type: "number", color: "red", number: 9 },
+    { id: "e", type: "number", color: "blue", number: 9 },
+    { id: "f", type: "number", color: "yellow", number: 9 }
+  ];
+
+  game.players[0].hand = [...phaseCards];
+  game.currentPlayerIndex = 0;
+  game.turnStage = "action";
+
+  Engine.layDownPhase(
+    game,
+    "ron",
+    phaseCards.map(card => card.id)
+  );
+  renderGame(game, "After Ron lays down Phase 1");
+
+  assert(
+    "Phase 1 is marked as laid down",
+    game.players[0].laidPhase === true
+  );
+
+  assert(
+    "Six phase cards are removed from the hand",
+    game.players[0].hand.length === 0
+  );
+
+  assert(
+    "Two sets are placed on the table",
+    game.players[0].tableau.length === 2
+  );
+
+  out.textContent += "\nPhase 1 lay-down test completed.";
+}
+
+  
+function testHitOnTable() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Give the computer a set of three 5s.
+  computer.laidPhase = true;
+  computer.tableau = [{
+    type: "set",
+    cards: [
+      { id: "c1", type: "number", color: "red", number: 5 },
+      { id: "c2", type: "number", color: "blue", number: 5 },
+      { id: "c3", type: "number", color: "green", number: 5 }
+    ]
+  }];
+
+  // Ron has already laid down his phase and holds another 5.
+  ron.laidPhase = true;
+  ron.hand = [
+    { id: "ron5", type: "number", color: "yellow", number: 5 }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  Engine.hitOnTable(game, "ron", "computer", 0, "ron5");
+  renderGame(game, "After Ron hits on the computer’s set");
+
+  assert(
+    "Ron can add a matching card to the computer's set",
+    computer.tableau[0].cards.length === 4
+  );
+
+  assert(
+    "The played card is removed from Ron's hand",
+    !ron.hand.some(card => card.id === "ron5")
+  );
+
+  assert(
+    "The computer's set still contains only 5s",
+    computer.tableau[0].cards.every(
+      card => card.type === "number" && card.number === 5
+    )
+  );
+}
+
+
+function testEndRound() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  // Set up a controlled end-of-round situation.
+  ron.hand = [
+    { id: "last", type: "number", color: "red", number: 5 }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", color: "blue", number: 2 },
+    { id: "left2", type: "wild" }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  // Ron discards his last card.
+  Engine.discardCard(game, "ron", "last");
+  renderGame(game, "After the round-ending discard");
+
+  assert(
+    "The round advances",
+    game.roundNumber === oldRound + 1
+  );
+
+  assert(
+    "The round-ending action is recorded",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+
+  assert(
+    "The computer's remaining cards score 30 points",
+    computer.score === 30
+  );
+
+  assert(
+    "Players receive new hands for the next round",
+    game.players.every(p => p.hand.length === 10)
+  );
+}
+
+function testGameVictory() {
+  const players = [
+    { id: "ron", name: "Ron", kind: "human" },
+    { id: "computer", name: "Computer", kind: "computer" }
+  ];
+
+  const game = Engine.createGame(players);
+
+  const ron = game.players.find(p => p.id === "ron");
+  const computer = game.players.find(p => p.id === "computer");
+
+  ron.phase = 10;
+  ron.hand = [
+    { id: "last", type: "number", number: 5, color: "red" }
+  ];
+
+  computer.hand = [
+    { id: "left1", type: "number", number: 2, color: "blue" },
+    { id: "left2", type: "wild", number: null, color: null }
+  ];
+
+  game.currentPlayerIndex = game.players.indexOf(ron);
+  game.turnStage = "action";
+
+  const oldRound = game.roundNumber;
+
+  Engine.discardCard(game, "ron", "last");
+  renderGame(game, "After Ron wins Phase 10");
+
+  assert("Game status becomes finished", game.status === "finished");
+  assert("Ron is declared the winner", game.winnerId === "ron");
+  assert(
+    "Final action records Ron's victory",
+    game.lastAction.type === "roundEnd" &&
+    game.lastAction.finisherId === "ron"
+  );
+  assert(
+    "No new round starts",
+    game.roundNumber === oldRound && ron.hand.length === 0
+  );
+  assert("Computer's remaining cards are scored", computer.score === 30);
+}
+
+window.testGameVictory = testGameVictory;
+window.runTests = runTests;
+window.dealSample = dealSample;
+window.testTurn = testTurn;
+window.testPhase1 = testPhase1;
+window.testLayDownPhase1 = testLayDownPhase1;
+window.testHitOnTable = testHitOnTable;
+window.testEndRound = testEndRound;
+window.testLayDownPhase1 = testLayDownPhase1;
+window.testHitOnTable = testHitOnTable;
+window.testEndRound = testEndRound;
+
+if (out) out.textContent =
+  "Engine module loaded.";
+</script>
+</body>
+</html>
