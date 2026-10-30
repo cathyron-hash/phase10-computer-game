@@ -591,7 +591,7 @@ function scheduleComputerTurn() {
   if (!playableGame || playableGame.status !== "playing") return;
   const current = currentPlayablePlayer();
   if (current?.kind === "computer") {
-    window.setTimeout(() => computerTurn(current.id), 650);
+    window.setTimeout(() => computerTurn(current.id), 1300);
   }
 }
 
