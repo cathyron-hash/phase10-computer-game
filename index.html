@@ -33,11 +33,24 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 #new-game { background:#f2c95e; border-color:#ffdf86; font-weight:800; }
 #lay-down-phase { background:#d9f0c8; font-weight:700; }
 #discard-selected { background:#fff3d0; font-weight:700; }
-#play-skip { display:none; }
+#play-skip { display:inline-block; background:#eadcf8; border-color:#cbb8e8; font-weight:700; }
+#skip-target { min-width:135px; padding:9px 10px; border:1px solid #cbb8e8; border-radius:9px; color:#25372b; background:#fffdf8; font:inherit; }
+#player-setup-overlay { position:fixed; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; padding:16px; background:#03190f99; backdrop-filter:blur(3px); }
+#player-setup-overlay.visible { display:flex; }
+#player-setup-dialog { width:min(440px,100%); padding:20px; border:2px solid #d8bd65; border-radius:16px; color:#183526; background:#fffef7; box-shadow:0 16px 48px #0008; }
+#player-setup-dialog h2 { color:#145c39; margin:0 0 6px; }
+#player-setup-dialog p { margin:0 0 14px; color:#53675b; }
+.setup-field { display:grid; grid-template-columns:110px 1fr; gap:10px; align-items:center; margin:9px 0; }
+.setup-field label { font-weight:700; }
+.setup-field input { width:100%; min-width:0; padding:9px 10px; border:1px solid #b8c9b8; border-radius:8px; font:inherit; color:#183526; background:white; }
+#setup-start { background:#f2c95e; border-color:#d7ad3e; font-weight:800; }
 #clear-selection { background:#53675b; color:#fff; }
 #game-message { display:none !important; min-height:0; margin:0; padding:0; }
 #human-phase-label { padding:5px 10px 2px; margin:0; border:0; border-radius:0; background:transparent; color:#fff5cb; font-size:.9rem; font-weight:800; text-align:left; }
-#opponent-areas { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; } .opponent-card { min-width:0; padding:8px; border:1px solid #d3b960; border-radius:10px; background:#0d4f32; color:#fff5cb; } .opponent-card.active { outline:3px solid #f4c75e; outline-offset:1px; } .opponent-name { margin:0 0 4px; font-weight:800; } .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; } .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; } .opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; } .opponent-hand .card-value { font-size:.8rem; } .opponent-hand .card-color { font-size:.42rem; }
+#opponent-areas { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; } .opponent-card { min-width:0; padding:8px; border:1px solid #d3b960; border-radius:10px; background:#0d4f32; color:#fff5cb; } .opponent-card.active { outline:3px solid #f4c75e; outline-offset:1px; }
+.pending-skip { display:flex; align-items:center; gap:6px; margin:5px 0; padding:4px 6px; border:1px solid #d7b7e8; border-radius:7px; background:#f0e5fb; color:#51317b; font-size:.72rem; font-weight:800; }
+.pending-skip .playing-card { flex:0 0 25px; width:25px; min-height:34px; padding:2px; font-size:.55rem; }
+.pending-skip .card-value { font-size:.65rem; } .opponent-name { margin:0 0 4px; font-weight:800; } .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; } .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; } .opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; } .opponent-hand .card-value { font-size:.8rem; } .opponent-hand .card-color { font-size:.42rem; }
 @media (max-width:600px) { #opponent-areas { grid-template-columns:1fr; } .opponent-hand { max-height:70px; overflow:hidden; } }
 #human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-color:#c4d9c8 #0b4a2f; }
 #human-hand .playing-card { flex:0 0 clamp(48px,5.25vw,68px); width:clamp(48px,5.25vw,68px); min-height:clamp(74px,8.1vw,100px); }
@@ -74,7 +87,7 @@ button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
 #human-hand [data-hand-card="true"].drag-over { outline:3px dashed var(--gold); transform:translateY(-4px); }
 .opponent-strip { margin:0; }
 #laid-phases { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:6px; padding:6px; border:1px solid #b9d8b9; border-radius:12px; background:#dcefd8; }
-.tableau-player { border:1px solid #cddccf; border-radius:10px; margin:0; padding:6px; background:#fffef8; }
+.tableau-player { border:1px solid #a9c9a8; border-radius:10px; margin:0; padding:6px; background:#edf7e9; }
 .tableau-player h4 { margin:0 0 4px; font-size:.76rem; }
 .tableau { display:flex; flex-wrap:wrap; gap:3px; align-items:flex-start; }
 .tableau-group { border:1px dashed #a7b6aa; border-radius:6px; padding:3px; margin:1px; min-width:0; overflow:visible; }
@@ -90,9 +103,9 @@ button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
 .tableau-group .card-color { font-size:.48rem; }
 .tableau-group .tableau-label { font-size:.66rem; margin-bottom:2px; }
 .tableau-group .hit-button { margin-top:3px; padding:4px 6px; min-height:26px; font-size:.66rem; border-radius:6px; }
-#round-end-overlay { position:fixed; inset:0; z-index:10000; display:none; align-items:center; justify-content:center; padding:12px; background:#03190f55; backdrop-filter:blur(1.5px); }
+#round-end-overlay { position:fixed; inset:0; z-index:10000; display:none; align-items:center; justify-content:center; padding:12px; background:#03190f38; backdrop-filter:blur(.6px); }
 #round-end-overlay.visible { display:flex; }
-#round-end-dialog { width:min(440px,94vw); max-height:82vh; overflow:auto; padding:14px 16px; border:1px solid #d8bd65; border-radius:14px; color:#183526; background:rgba(250,250,239,.91); box-shadow:0 10px 32px #0006; backdrop-filter:blur(7px); }
+#round-end-dialog { width:min(440px,94vw); max-height:78vh; overflow:auto; padding:12px 15px; border:1px solid #d8bd65; border-radius:14px; color:#183526; background:rgba(250,250,239,.86); box-shadow:0 10px 32px #0005; backdrop-filter:blur(5px); }
 #round-end-dialog h2 { color:#145c39; font-size:1.25rem; margin:0 0 4px; }
 #round-end-winner { margin:0 0 16px; font-size:1rem; }
 #round-score-table { width:100%; border-collapse:collapse; margin:10px 0 18px; }
@@ -162,7 +175,17 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   }
   .side-controls { display:flex; flex-direction:column; justify-content:center; gap:12px; margin:0; min-width:0; }
   .side-controls button { width:100%; min-height:48px; padding:8px; font-size:.9rem; }
-  #play-skip { display:none; }
+  #play-skip { display:inline-block; background:#eadcf8; border-color:#cbb8e8; font-weight:700; }
+#skip-target { min-width:135px; padding:9px 10px; border:1px solid #cbb8e8; border-radius:9px; color:#25372b; background:#fffdf8; font:inherit; }
+#player-setup-overlay { position:fixed; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; padding:16px; background:#03190f99; backdrop-filter:blur(3px); }
+#player-setup-overlay.visible { display:flex; }
+#player-setup-dialog { width:min(440px,100%); padding:20px; border:2px solid #d8bd65; border-radius:16px; color:#183526; background:#fffef7; box-shadow:0 16px 48px #0008; }
+#player-setup-dialog h2 { color:#145c39; margin:0 0 6px; }
+#player-setup-dialog p { margin:0 0 14px; color:#53675b; }
+.setup-field { display:grid; grid-template-columns:110px 1fr; gap:10px; align-items:center; margin:9px 0; }
+.setup-field label { font-weight:700; }
+.setup-field input { width:100%; min-width:0; padding:9px 10px; border:1px solid #b8c9b8; border-radius:8px; font:inherit; color:#183526; background:white; }
+#setup-start { background:#f2c95e; border-color:#d7ad3e; font-weight:800; }
   #play-area > h3:nth-of-type(2) { grid-area:tabletitle; margin:0; }
   #laid-phases {
     grid-area:table;
@@ -256,10 +279,13 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   <div class="game-controls side-controls" id="right-controls">
     <button id="discard-selected" type="button" disabled>Discard selected card</button>
     <button id="clear-selection" type="button" class="secondary" disabled>Clear selection</button>
-    <button id="play-skip" type="button" disabled aria-hidden="true">Skip is automatic when discarded</button>
+    <label for="skip-target" class="small-note" style="align-self:center">Target:</label>
+    <select id="skip-target" aria-label="Choose player to skip"></select>
+    <button id="play-skip" type="button" disabled>Play Skip</button>
   </div>
   <p id="game-message" class="small-note" aria-live="polite" hidden></p>
   <div id="human-phase-label" class="opponent-strip">Phase 1 — Two sets of 3</div>
+  <div id="human-pending-skip" class="pending-skip" hidden></div>
   <div id="human-hand" class="hand"></div>
   <h3>Computer opponents</h3>
   <div id="opponent-areas" aria-label="Computer opponents"></div>
@@ -284,11 +310,26 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   </section>
 </div>
 
+<div id="player-setup-overlay" role="dialog" aria-modal="true" aria-labelledby="player-setup-title">
+  <section id="player-setup-dialog">
+    <h2 id="player-setup-title">Player setup</h2>
+    <p>One human player and three computer opponents. Names are saved on this device.</p>
+    <div class="setup-field"><label for="name-human">You</label><input id="name-human" maxlength="18" value="Ron" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-alex">Computer 1</label><input id="name-alex" maxlength="18" value="Alex" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-sophie">Computer 2</label><input id="name-sophie" maxlength="18" value="Sophie" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-taylor">Computer 3</label><input id="name-taylor" maxlength="18" value="Taylor" autocomplete="off"></div>
+    <div class="confirm-actions" style="margin-top:16px">
+      <button id="setup-cancel" type="button" class="secondary">Cancel</button>
+      <button id="setup-start" type="button">Start game</button>
+    </div>
+  </section>
+</div>
+
 <section id="instructions-footer" aria-label="How to play">
   <h2>How to play</h2>
   <p id="hand-note">Rearrange your cards by dragging one onto another. Tap cards to select them for a phase, hit, or discard.</p>
   <p id="table-note">After you have laid down your own phase, select one card from your hand and tap “Hit with selected card” under a group it fits. You must keep at least one card to discard.</p>
-  <p>Each turn, draw one card, then lay down a valid phase if you can, hit on a laid phase if eligible, and discard one card. A discarded Skip automatically skips the next player.</p>
+  <p>Each turn, draw one card, then lay down a valid phase if you can, hit on a laid phase if eligible, and discard one card. Play a Skip from your hand by choosing a target; it waits in front of that player and moves to the discard pile when their turn is skipped.</p>
 </section>
 
 <div id="round-end-overlay" role="dialog" aria-modal="true" aria-labelledby="round-end-title">
@@ -317,6 +358,7 @@ const drawPileButton = document.getElementById("draw-pile");
 const discardPileButton = document.getElementById("discard-pile");
 const discardSelectedButton = document.getElementById("discard-selected");
 const playSkipButton = document.getElementById("play-skip");
+const skipTargetSelect = document.getElementById("skip-target");
 const layDownPhaseButton = document.getElementById("lay-down-phase");
 const clearSelectionButton = document.getElementById("clear-selection");
 const newGameButton = document.getElementById("new-game");
@@ -328,9 +370,39 @@ const selectedPhaseCardIds = new Set();
 let draggedHandCardId = null;
 let activitySequence = 0;
 const activityList = document.getElementById("activity-list");
-const humanId = "ron";
+const humanId = "human";
+let playerNames = loadPlayerNames();
 const computerIds = ["alex", "sophie", "taylor"];
 const computerStyles = { alex: "Strategic", sophie: "Tactical", taylor: "Bold" };
+
+function loadPlayerNames() {
+  const defaults = { human: "Ron", alex: "Alex", sophie: "Sophie", taylor: "Taylor" };
+  try {
+    const saved = JSON.parse(localStorage.getItem("phase10-player-names-v28") || "{}");
+    for (const id of Object.keys(defaults)) {
+      if (typeof saved[id] === "string" && saved[id].trim()) defaults[id] = saved[id].trim().slice(0, 18);
+    }
+  } catch (_) { /* Storage may be unavailable in private browsing. */ }
+  return defaults;
+}
+
+function savePlayerNames() {
+  const ids = ["human", ...computerIds];
+  for (const id of ids) {
+    const input = document.getElementById(`name-${id}`);
+    const value = input?.value?.trim();
+    if (value) playerNames[id] = value.slice(0, 18);
+  }
+  try { localStorage.setItem("phase10-player-names-v28", JSON.stringify(playerNames)); } catch (_) { /* Game remains playable without persistence. */ }
+}
+
+function openPlayerSetup() {
+  for (const id of ["human", ...computerIds]) {
+    const input = document.getElementById(`name-${id}`);
+    if (input) input.value = playerNames[id];
+  }
+  document.getElementById("player-setup-overlay").classList.add("visible");
+}
 
 function logActivity(message) {
   if (!activityList) return;
@@ -350,14 +422,6 @@ function logRoundScores() {
   const finisher = playableGame.players.find(p => p.id === action.finisherId)?.name || "A player";
   const totals = playableGame.players.map(p => `${p.name}: +${scores[p.id] ?? 0} points (total ${p.score ?? 0})`).join("; ");
   logActivity(`ROUND OVER — ${finisher} went out. ${totals}.`);
-  if (action.nextRoundStart?.openingSkip) {
-    const skipped = playableGame.players.find(p => p.id === action.nextRoundStart.openingSkip.skippedPlayerId);
-    logActivity(`New round: opening discard is a Skip, so ${skipped?.name || "the first player"} loses the opening turn.`);
-  } else if (action.nextRoundStart) {
-    const dealer = playableGame.players.find(p => p.id === action.nextRoundStart.dealerId);
-    const first = playableGame.players.find(p => p.id === action.nextRoundStart.firstPlayerId);
-    logActivity(`New round: ${dealer?.name || "the dealer"} deals; ${first?.name || "the next player"} starts to the dealer's left.`);
-  }
 }
 
 function showRoundEndPopup() {
@@ -384,6 +448,10 @@ function showRoundEndPopup() {
 
 function continueAfterRoundEnd() {
   document.getElementById("round-end-overlay").classList.remove("visible");
+  if (playableGame?.pendingNextRound) {
+    Engine.startNextRound(playableGame);
+    logActivity(`Round ${playableGame.roundNumber} begins. ${playableGame.players[playableGame.dealerIndex].name} deals.`);
+  }
   roundPaused = false;
   renderPlayableGame();
   if (playableGame?.status === "playing") scheduleComputerTurn();
@@ -482,7 +550,16 @@ function renderPlayableGame() {
   humanHand.replaceChildren();
   player.hand.forEach(card => humanHand.appendChild(playableCardElement(card, true)));
   if (!player.hand.length) humanHand.textContent = "No cards in hand.";
-  document.getElementById("human-phase-label").textContent = `Ron: ${phaseDescription(player.phase)} · Score ${player.score}${player.laidPhase ? " · laid down" : ""}`;
+  document.getElementById("human-phase-label").textContent = `${player.name}: ${phaseDescription(player.phase)} · Score ${player.score}${player.laidPhase ? " · laid down" : ""}`;
+  const humanPendingSkip = document.getElementById("human-pending-skip");
+  humanPendingSkip.replaceChildren();
+  humanPendingSkip.hidden = !player.pendingSkipCard;
+  if (player.pendingSkipCard) {
+    humanPendingSkip.appendChild(cardElement(player.pendingSkipCard));
+    const pendingText = document.createElement("span");
+    pendingText.textContent = "Skip waiting — you will lose your next turn";
+    humanPendingSkip.appendChild(pendingText);
+  }
   opponentAreas.replaceChildren();
   playableGame.players.filter(p => p.kind === "computer").forEach(opponent => {
     const area = document.createElement("section");
@@ -494,6 +571,16 @@ function renderPlayableGame() {
     meta.className = "opponent-meta";
     meta.textContent = `${computerStyles[opponent.id] || "Computer"} · ${opponent.hand.length} cards · Phase ${opponent.phase} · Score ${opponent.score}${opponent.laidPhase ? " · laid down" : ""}`;
 
+    const pendingSkip = document.createElement("div");
+    pendingSkip.className = "pending-skip";
+    if (opponent.pendingSkipCard) {
+      pendingSkip.appendChild(cardElement(opponent.pendingSkipCard));
+      const pendingText = document.createElement("span");
+      pendingText.textContent = "Skip waiting — this player loses their next turn";
+      pendingSkip.appendChild(pendingText);
+    } else {
+      pendingSkip.hidden = true;
+    }
     const hand = document.createElement("div");
     hand.className = "opponent-hand";
     hand.setAttribute("aria-label", `${opponent.name}'s face-down cards`);
@@ -507,7 +594,9 @@ function renderPlayableGame() {
 });
 
 if (!opponent.hand.length) hand.textContent = "No cards";
-    area.append(name, meta, hand);
+    area.append(name, meta);
+    if (opponent.pendingSkipCard) area.appendChild(pendingSkip);
+    area.appendChild(hand);
     opponentAreas.appendChild(area);
   });
 
@@ -558,10 +647,19 @@ if (!opponent.hand.length) hand.textContent = "No cards";
   if (top) discardTop.appendChild(cardElement(top));
   else discardTop.textContent = "Empty";
   drawPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw";
-  discardPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw" || !top;
+  discardPileButton.disabled = !isHumanTurn || playableGame.turnStage !== "draw" || !top || top.type === "skip";
   discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1;
   const selectedCard = selectedPhaseCardIds.size === 1 ? player.hand.find(c => c.id === [...selectedPhaseCardIds][0]) : null;
-  playSkipButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type !== "skip";
+  const eligibleSkipTargets = playableGame.players.filter(p => p.id !== humanId && !(playableGame.skipTargetsUsed || []).includes(p.id));
+  const priorTarget = skipTargetSelect.value;
+  skipTargetSelect.replaceChildren();
+  eligibleSkipTargets.forEach(target => {
+    const option = document.createElement("option"); option.value = target.id; option.textContent = target.name; skipTargetSelect.appendChild(option);
+  });
+  if (eligibleSkipTargets.some(p => p.id === priorTarget)) skipTargetSelect.value = priorTarget;
+  skipTargetSelect.disabled = !isHumanTurn || eligibleSkipTargets.length === 0;
+  playSkipButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type !== "skip" || eligibleSkipTargets.length === 0;
+  discardSelectedButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || selectedPhaseCardIds.size !== 1 || selectedCard?.type === "skip";
   layDownPhaseButton.disabled = !isHumanTurn || playableGame.turnStage !== "action" || player.laidPhase || selectedPhaseCardIds.size === 0 || selectedPhaseCardIds.size >= player.hand.length;
   clearSelectionButton.disabled = selectedPhaseCardIds.size === 0;
 
@@ -571,26 +669,22 @@ function startPlayableGame() {
   gameGeneration++;
   roundPaused = false;
   document.getElementById("round-end-overlay").classList.remove("visible");
+  savePlayerNames();
   playableGame = Engine.createGame([
-    { id: humanId, name: "Ron", kind: "human" },
-    { id: "alex", name: "Alex", kind: "computer" },
-    { id: "sophie", name: "Sophie", kind: "computer" },
-    { id: "taylor", name: "Taylor", kind: "computer" }
+    { id: humanId, name: playerNames.human, kind: "human" },
+    { id: "alex", name: playerNames.alex, kind: "computer" },
+    { id: "sophie", name: playerNames.sophie, kind: "computer" },
+    { id: "taylor", name: playerNames.taylor, kind: "computer" }
   ]);
   selectedCardId = null;
   selectedPhaseCardIds.clear();
   activitySequence = 0;
   activityList.replaceChildren();
-  logActivity("New four-player game started. Ron, Alex, Sophie, and Taylor are playing.");
-  if (playableGame.lastAction?.type === "openingSkip") {
-    const skipped = playableGame.players.find(p => p.id === playableGame.lastAction.skippedPlayerId);
-    logActivity(`Opening discard was a Skip. ${skipped?.name || "The first player"} loses the opening turn.`);
-  } else {
-    const dealer = playableGame.players[playableGame.dealerIndex];
-    const first = currentPlayablePlayer();
-    logActivity(`${dealer?.name || "The dealer"} deals first; ${first?.name || "The next player"} starts to the dealer's left.`);
-  }
-  playMessage.textContent = "Draw a card, then select cards for your phase and tap Lay down my phase, or select one card and discard it. Alex, Sophie, and Taylor will play automatically.";
+  logActivity(`New four-player game started: ${playerNames.human}, ${playerNames.alex}, ${playerNames.sophie}, and ${playerNames.taylor}.`);
+  const dealer = playableGame.players[playableGame.dealerIndex];
+  const first = currentPlayablePlayer();
+  logActivity(`${dealer?.name || "The dealer"} deals first; ${first?.name || "The next player"} starts to the dealer's left.`);
+  playMessage.textContent = `Draw a card, then select cards for your phase or select one card to discard. ${playerNames.alex}, ${playerNames.sophie}, and ${playerNames.taylor} will play automatically.`;
   renderPlayableGame();
   scheduleComputerTurn();
 }
@@ -642,7 +736,7 @@ async function drawPlayableCard(source) {
     await animateCardFlight(visibleTop, sourceNode, humanHand, source === "draw");
     if (actionGeneration !== gameGeneration || !playableGame) return;
     const drawn = Engine.drawCard(playableGame, humanId, source);
-    logActivity(`Ron drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the ${source === "draw" ? "draw" : "discard"} pile.`);
+    logActivity(`${playerNames.human} drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the ${source === "draw" ? "draw" : "discard"} pile.`);
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     playMessage.textContent = `You drew ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}. Select the cards for Phase ${playableGame.players.find(p => p.id === humanId).phase} and tap Lay down my phase, or select one card to discard.`;
@@ -653,8 +747,8 @@ async function drawPlayableCard(source) {
 }
 
 function cardKeepValue(card, hand, playerId) {
-  if (card.type === "wild") return 7;
-  if (card.type === "skip") return 0.5;
+  if (card.type === "wild") return 18;
+  if (card.type === "skip") return 3.5;
   const sameNumber = hand.filter(c => c.id !== card.id && c.type === "number" && c.number === card.number).length;
   const sameColor = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color).length;
   const neighbors = hand.filter(c => c.id !== card.id && c.type === "number" && c.color === card.color && Math.abs(c.number - card.number) === 1).length;
@@ -685,8 +779,8 @@ function findComputerPhaseCards(hand, phaseNumber) {
     }
     return null;
   };
-  // Prefer laying down more cards when a legal extended set/run is available.
-  for (let size = hand.length; size >= expected; size--) {
+  // Keep at least one card to discard after laying down the phase.
+  for (let size = hand.length - 1; size >= expected; size--) {
     const result = choose(0, size, []);
     if (result) return result;
   }
@@ -750,8 +844,24 @@ function scheduleComputerTurn() {
   if (!playableGame || playableGame.status !== "playing" || roundPaused) return;
   const current = currentPlayablePlayer();
   if (current?.kind === "computer") {
-    window.setTimeout(() => computerTurn(current.id), 1300);
+    const scheduledGeneration = gameGeneration;
+    window.setTimeout(() => {
+      if (scheduledGeneration === gameGeneration) computerTurn(current.id);
+    }, 1300);
   }
+}
+
+function chooseComputerSkipTarget(playerId) {
+  const candidates = playableGame.players.filter(p => p.id !== playerId && !(playableGame.skipTargetsUsed || []).includes(p.id));
+  if (!candidates.length) return null;
+  const style = playerId;
+  if (style === "taylor") return candidates[Math.floor(Math.random() * candidates.length)];
+  if (style === "sophie") {
+    return [...candidates].sort((a,b) => (a.hand.length - (a.laidPhase ? 1.5 : 0)) - (b.hand.length - (b.laidPhase ? 1.5 : 0)))[0];
+  }
+  // Alex is calculating: target the opponent with the fewest cards; stable
+  // seat order breaks ties consistently.
+  return [...candidates].sort((a,b) => a.hand.length - b.hand.length)[0];
 }
 
 async function computerTurn(playerId) {
@@ -763,23 +873,17 @@ async function computerTurn(playerId) {
     const top = playableGame.discardPile.at(-1);
     const currentHand = computer.hand;
     const topValue = top ? cardKeepValue(top, currentHand, playerId) : -1;
-    const weakestExisting = currentHand.length
-      ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand, playerId)))
-      : -1;
-    const discardIsImmediateHit = !!(top && computerCanHitWithCard(top, playerId));
-    // Sophie is more willing to take a useful discard for a hit; Taylor favors drawing.
-    const personalityBias = playerId === "sophie" && discardIsImmediateHit ? 0.2
-      : playerId === "taylor" ? 0.5 : 0.8;
-    const source = top && (discardIsImmediateHit || topValue >= weakestExisting + personalityBias) ? "discard" : "draw";
+    const weakestExisting = currentHand.length ? Math.min(...currentHand.map(card => cardKeepValue(card, currentHand, playerId))) : -1;
+    const discardIsImmediateHit = !!(top && top.type !== "skip" && computerCanHitWithCard(top, playerId));
+    const personalityBias = playerId === "sophie" && discardIsImmediateHit ? -0.2 : playerId === "taylor" ? 0.9 : 0.35;
+    const source = top && top.type !== "skip" && (top.type === "wild" || discardIsImmediateHit || topValue >= weakestExisting + personalityBias) ? "discard" : "draw";
     const computerArea = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(playerId) + 1}) .opponent-hand`);
     await animateCardFlight(top, source === "draw" ? drawPileButton : discardPileButton, computerArea || opponentAreas, source === "draw");
     if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
     const drawn = Engine.drawCard(playableGame, playerId, source);
     renderPlayableGame();
     await waitForCardBeat(380);
-    logActivity(source === "draw"
-      ? `${computer.name} drew a face-down card from the draw pile.`
-      : `${computer.name} picked ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the discard pile.`);
+    logActivity(source === "draw" ? `${computer.name} drew a face-down card.` : `${computer.name} picked ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""} from the discard pile.`);
     let phaseMessage = "";
     if (!computer.laidPhase) {
       const phaseIds = findComputerPhaseCards(computer.hand, computer.phase);
@@ -792,40 +896,52 @@ async function computerTurn(playerId) {
     }
     const hits = computerHitAllPossible(playerId, discardIsImmediateHit ? drawn.id : null);
     if (hits.length) { phaseMessage += `, then hit ${hits.join(", ")}`; logActivity(`${computer.name} hit ${hits.join("; ")}.`); }
-    const handAfterDraw = computer.hand;
-    const discard = handAfterDraw.reduce((worst, card) => {
-      if (!worst) return card;
-      const score = cardKeepValue(card, handAfterDraw, playerId);
-      const worstScore = cardKeepValue(worst, handAfterDraw, playerId);
-      if (score < worstScore) return card;
-      if (score === worstScore && card.type === "number" && worst.type === "number" && card.number > worst.number) return card;
-      return worst;
-    }, null);
-    if (!discard) throw new Error(`${computer.name} couldn't choose a discard.`);
-    const opponentHandNode = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(playerId) + 1}) .opponent-hand`);
-    await animateCardFlight(discard, opponentHandNode || opponentAreas, discardPileButton, false);
-    if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
-    Engine.discardCard(playableGame, playerId, discard.id);
-    if (discard.type === "skip" && playableGame.status === "playing") {
-      const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
-      logActivity(`${computer.name} discarded a SKIP. ${skippedName} is automatically skipped.`);
+
+    // Wilds are normally protected because they are valuable in phases. If an
+    // opponent is about to go out and this computer is unlikely to finish first,
+    // avoiding the 25-point penalty takes priority.
+    const imminentThreat = playableGame.players.some(p => p.id !== playerId && (p.hand.length <= 2 || (p.laidPhase && p.hand.length <= 3)));
+    const likelyToGoOut = computer.hand.length <= 1;
+    const wilds = computer.hand.filter(c => c.type === "wild");
+    const forcedWild = imminentThreat && !likelyToGoOut && wilds.length ? wilds[0] : null;
+
+    const skipCard = computer.hand.find(c => c.type === "skip");
+    const skipTarget = skipCard ? chooseComputerSkipTarget(playerId) : null;
+    const shouldPlaySkip = !!(skipCard && skipTarget && (
+      computer.hand.every(c => c.type === "skip") || playerId === "sophie" ||
+      (playerId === "alex" && skipTarget.hand.length <= 4) ||
+      (playerId === "taylor" && Math.random() < 0.7)
+    ));
+    if (shouldPlaySkip) {
+      const targetNode = skipTarget.id === humanId
+        ? document.getElementById("human-phase-label")
+        : opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(skipTarget.id) + 1})`);
+      await animateCardFlight(skipCard, computerArea || opponentAreas, targetNode || opponentAreas, false);
+      if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
+      Engine.playSkip(playableGame, playerId, skipTarget.id, skipCard.id);
+      logActivity(`${computer.name} played a Skip on ${skipTarget.name}.`);
+      phaseMessage += ` and played a Skip on ${skipTarget.name}`;
     } else {
-      logActivity(`${computer.name} discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}.`);
+      const handAfterDraw = computer.hand;
+      const discardPool = handAfterDraw.filter(card => card.type !== "skip");
+      const discard = forcedWild || (discardPool.length ? discardPool : handAfterDraw).reduce((worst, card) => {
+        if (!worst) return card;
+        const score = cardKeepValue(card, handAfterDraw, playerId);
+        const worstScore = cardKeepValue(worst, handAfterDraw, playerId);
+        if (score < worstScore) return card;
+        if (score === worstScore && card.type === "number" && worst.type === "number" && card.number > worst.number) return card;
+        return worst;
+      }, null);
+      if (!discard) throw new Error(`${computer.name} couldn't choose a discard.`);
+      const opponentHandNode = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(playerId) + 1}) .opponent-hand`);
+      await animateCardFlight(discard, opponentHandNode || opponentAreas, discardPileButton, false);
+      if (turnGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== playerId) return;
+      Engine.discardCard(playableGame, playerId, discard.id);
+      logActivity(`${computer.name} discarded ${cardLabel(discard)}${discard.color ? " " + discard.color : ""}${forcedWild ? " to avoid the Wild penalty" : ""}.`);
     }
     logRoundScores();
-    const sourceLabel = source === "discard"
-      ? (discardIsImmediateHit ? "the discard pile (a legal hit)" : "the discard pile")
-      : "the draw pile";
-    if (playableGame.status === "finished") {
-      playMessage.textContent = `${computer.name} drew from ${sourceLabel}${phaseMessage}, discarded ${cardLabel(discard)}, and won the game!`;
-    } else if (playableGame.lastAction.type === "roundEnd") {
-      playMessage.textContent = `${computer.name} finished the round. The round scores are ready.`;
-    } else {
-      const drawDescription = source === "draw"
-        ? "drew a face-down card"
-        : `picked ${cardLabel(drawn)}${drawn.color ? " " + drawn.color : ""}`;
-      playMessage.textContent = `${computer.name} took ${sourceLabel}, ${drawDescription}${phaseMessage}, and discarded ${cardLabel(discard)}.`;
-    }
+    if (playableGame.lastAction?.type === "roundEnd") playMessage.textContent = `${computer.name} finished the round. Review the scores before the next deal.`;
+    else playMessage.textContent = `${computer.name} completed a turn${phaseMessage}.`;
   } catch (error) {
     playMessage.textContent = `${computer.name}'s turn stopped: ${error.message}`;
     logActivity(`${computer.name}'s turn error: ${error.message}`);
@@ -848,7 +964,7 @@ async function layDownHumanPhase() {
     await animateCardFlight(firstPhaseCard, firstPhaseNode || humanHand, laidPhases, false);
     if (actionGeneration !== gameGeneration || !playableGame) return;
     Engine.layDownPhase(playableGame, humanId, ids);
-    logActivity(`RON LAID DOWN PHASE: ${phaseDescription(phaseBefore)}.`);
+    logActivity(`${playableGame.players.find(p => p.id === humanId).name.toUpperCase()} LAID DOWN PHASE: ${phaseDescription(phaseBefore)}.`);
     selectedPhaseCardIds.clear();
     selectedCardId = null;
     const player = playableGame.players.find(p => p.id === humanId);
@@ -870,7 +986,7 @@ async function hitHumanCard(targetPlayerId, targetGroupIndex) {
     await animateCardFlight(card, sourceNode || humanHand, laidPhases, false);
     if (actionGeneration !== gameGeneration || !playableGame) return;
     Engine.hitOnTable(playableGame, humanId, targetPlayerId, targetGroupIndex, cardId);
-    logActivity(`Ron hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase.`);
+    logActivity(`${playableGame.players.find(p => p.id === humanId).name} hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase.`);
     selectedCardId = null;
     selectedPhaseCardIds.clear();
     playMessage.textContent = `You hit ${cardLabel(card)}${card?.color ? " " + card.color : ""} on ${target.name}'s phase. Select another card to hit again or discard one card to finish your turn.`;
@@ -880,53 +996,42 @@ async function hitHumanCard(targetPlayerId, targetGroupIndex) {
   }
 }
 
-function playHumanSkip() {
-  // Legacy handler retained for compatibility; the button is hidden in V20 because Skip is automatic on discard.
+async function playHumanSkip() {
   if (!playableGame || selectedPhaseCardIds.size !== 1) return;
   const cardId = [...selectedPhaseCardIds][0];
   const player = playableGame.players.find(p => p.id === humanId);
   const card = player.hand.find(c => c.id === cardId);
-  if (card?.type !== "skip") {
-    playMessage.textContent = "Select a Skip card first.";
-    return;
-  }
+  if (card?.type !== "skip") { playMessage.textContent = "Select a Skip card first."; return; }
+  const targetId = skipTargetSelect.value;
   try {
-    const targetId = playableGame.players[(playableGame.currentPlayerIndex + 1) % playableGame.players.length].id;
+    const targetNode = opponentAreas.querySelector(`.opponent-card:nth-child(${computerIds.indexOf(targetId) + 1})`);
+    const sourceNode = humanHand.querySelector(`[data-card-id="${cardId}"]`);
+    await animateCardFlight(card, sourceNode || humanHand, targetNode || opponentAreas, false);
     Engine.playSkip(playableGame, humanId, targetId, cardId);
-    logActivity(`Ron played a SKIP on ${playableGame.players.find(p => p.id === targetId)?.name}.`);
+    const target = playableGame.players.find(p => p.id === targetId);
+    logActivity(`${player.name} played a SKIP on ${target?.name}.`);
     logRoundScores();
     selectedCardId = null;
     selectedPhaseCardIds.clear();
-    if (playableGame.lastAction.type === "roundEnd") {
-      const points = playableGame.lastAction.roundScores?.[humanId] ?? 0;
-      playMessage.textContent = `You played a Skip on the computer. The round ended; you received ${points} points for cards left in your hand.`;
-      renderPlayableGame();
-      showRoundEndPopup();
-      return;
-    }
-    playMessage.textContent = "You played a Skip card. The next player loses their turn.";
+    playMessage.textContent = `${target?.name || "Your target"} will lose their next turn.`;
     renderPlayableGame();
-    if (playableGame.status === "playing" && currentPlayablePlayer()?.kind === "computer") scheduleComputerTurn();
-  } catch (error) {
-    playMessage.textContent = error.message;
-  }
+    if (playableGame.lastAction?.type === "roundEnd") showRoundEndPopup();
+    else scheduleComputerTurn();
+  } catch (error) { playMessage.textContent = error.message; }
 }
 
 async function discardPlayableCard() {
   if (!playableGame || selectedPhaseCardIds.size !== 1 || !selectedCardId) return;
   const actionGeneration = gameGeneration;
   try {
-    const discarded = playableGame.players.find(p => p.id === humanId).hand.find(c => c.id === selectedCardId);
+    const humanPlayer = playableGame.players.find(p => p.id === humanId);
+    const discarded = humanPlayer.hand.find(c => c.id === selectedCardId);
+    if (discarded?.type === "skip") { playMessage.textContent = "A Skip must be played on a chosen player, not discarded."; return; }
     const sourceNode = humanHand.querySelector(`[data-card-id="${selectedCardId}"]`);
     await animateCardFlight(discarded, sourceNode || humanHand, discardPileButton, false);
     if (actionGeneration !== gameGeneration || !playableGame || currentPlayablePlayer()?.id !== humanId) return;
     Engine.discardCard(playableGame, humanId, selectedCardId);
-    if (discarded?.type === "skip" && playableGame.status === "playing") {
-      const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
-      logActivity(`Ron discarded a SKIP. ${skippedName} is automatically skipped.`);
-    } else {
-      logActivity(`Ron discarded ${cardLabel(discarded)}${discarded?.color ? " " + discarded.color : ""}.`);
-    }
+    logActivity(`${humanPlayer.name} discarded ${cardLabel(discarded)}${discarded?.color ? " " + discarded.color : ""}.`);
     logRoundScores();
     selectedCardId = null;
     selectedPhaseCardIds.clear();
@@ -940,12 +1045,7 @@ async function discardPlayableCard() {
       playMessage.textContent = `${playableGame.players.find(p => p.id === playableGame.winnerId)?.name || "A player"} wins the game!`;
     } else {
       const current = currentPlayablePlayer();
-      if (discarded?.type === "skip") {
-        const skippedName = playableGame.players.find(p => p.id === playableGame.lastAction?.skippedPlayerId)?.name || "the next player";
-        playMessage.textContent = `You discarded a Skip. ${skippedName} was automatically skipped.`;
-      } else {
-        playMessage.textContent = `You discarded ${cardLabel(discarded)}. ${current?.name || "Next player"} is taking their turn…`;
-      }
+      playMessage.textContent = `You discarded ${cardLabel(discarded)}. ${current?.name || "Next player"} is taking their turn…`;
       renderPlayableGame();
       scheduleComputerTurn();
       return;
@@ -960,7 +1060,7 @@ function openNewGameConfirmation() {
   if (playableGame?.status === "playing") {
     document.getElementById("new-game-confirm-overlay").classList.add("visible");
   } else {
-    startPlayableGame();
+    openPlayerSetup();
   }
 }
 
@@ -969,6 +1069,11 @@ document.getElementById("resume-game").addEventListener("click", () => {
 });
 document.getElementById("confirm-start-new-game").addEventListener("click", () => {
   document.getElementById("new-game-confirm-overlay").classList.remove("visible");
+  openPlayerSetup();
+});
+document.getElementById("setup-cancel").addEventListener("click", () => document.getElementById("player-setup-overlay").classList.remove("visible"));
+document.getElementById("setup-start").addEventListener("click", () => {
+  document.getElementById("player-setup-overlay").classList.remove("visible");
   startPlayableGame();
 });
 newGameButton.addEventListener("click", openNewGameConfirmation);
@@ -1358,7 +1463,8 @@ function testTurn() {
     const before = player.hand.length;
 
     const drawn = Engine.drawCard(game, player.id);
-    const cardToDiscard = player.hand[0];
+    const cardToDiscard = player.hand.find(card => card.type !== "skip");
+    if (!cardToDiscard) throw new Error("The test hand has no ordinary discard card.");
 
     Engine.discardCard(game, player.id, cardToDiscard.id);
 
@@ -1553,8 +1659,8 @@ function testEndRound() {
   renderGame(game, "After the round-ending discard");
 
   assert(
-    "The round advances",
-    game.roundNumber === oldRound + 1
+    "The completed round remains visible until continued",
+    game.roundNumber === oldRound && game.pendingNextRound === true
   );
 
   assert(
@@ -1569,9 +1675,11 @@ function testEndRound() {
   );
 
   assert(
-    "Players receive new hands for the next round",
-    game.players.every(p => p.hand.length === 10)
+    "Completed hands remain in place while scores are reviewed",
+    ron.hand.length === 0 && computer.hand.length === 2
   );
+  Engine.startNextRound(game);
+  assert("Next round starts after confirmation", game.roundNumber === oldRound + 1 && game.players.every(p => p.hand.length === 10));
 }
 
 function testGameVictory() {
