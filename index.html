@@ -211,7 +211,9 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
       "tabletitle tabletitle tabletitle"
       "table table table"
       "phasebar phasebar phasebar"
+      "pending pending pending"
       "hand hand hand";
+      
     align-content:start;
     align-items:center;
     gap:5px 10px;
@@ -258,6 +260,14 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
     gap:5px;
   }
   #human-phase-label { grid-area:phasebar; }
+
+  #human-pending-skip {
+  grid-area:pending;
+  justify-self:start;
+  align-self:center;
+  margin:0;
+}
+  
   #human-hand {
     grid-area:hand;
     min-height:104px;
