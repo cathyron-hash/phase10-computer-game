@@ -80,10 +80,16 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 }
 
 #human-pending-skip {
+  display:flex;
+  order:2;
+  grid-area:pending;
   align-self:flex-start;
-  margin:0 0 2px;
+  justify-self:start;
+  margin:0 0 5px;
 }
-
+#human-pending-skip[hidden] {
+  display:none;
+}
 .opponent-name { margin:0 0 4px; font-weight:800; }
 .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; }
 .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; }
@@ -93,7 +99,7 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
   
   
 @media (max-width:600px) { #opponent-areas { grid-template-columns:1fr; } .opponent-hand { max-height:70px; overflow:hidden; } }
-#human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-width:none; -ms-overflow-style:none; }
+#human-hand { display:flex; order:3; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-width:none; -ms-overflow-style:none; }
 #human-hand::-webkit-scrollbar { display:none; }
 #human-hand .playing-card { flex:0 0 clamp(48px,5.25vw,68px); width:clamp(48px,5.25vw,68px); min-height:clamp(74px,8.1vw,100px); }
 .playing-card { flex:0 0 58px; width:58px; min-height:82px; padding:6px 3px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; border:2px solid #f5f1e3; border-radius:8px; background:linear-gradient(155deg,#fff,#f4f0e4); color:#1f2b23; box-shadow:0 3px 5px #061f1450; font-weight:800; cursor:default; }
