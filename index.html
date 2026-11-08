@@ -48,9 +48,44 @@ button.secondary { color:white; background:#53675b; border-color:#a7c6b1; }
 #game-message { display:none !important; min-height:0; margin:0; padding:0; }
 #human-phase-label { padding:5px 10px 2px; margin:0; border:0; border-radius:0; background:transparent; color:#fff5cb; font-size:.9rem; font-weight:800; text-align:left; }
 #opponent-areas { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; } .opponent-card { min-width:0; padding:8px; border:1px solid #d3b960; border-radius:10px; background:#0d4f32; color:#fff5cb; } .opponent-card.active { outline:3px solid #f4c75e; outline-offset:1px; }
-.pending-skip { display:flex; align-items:center; gap:6px; margin:5px 0; padding:4px 6px; border:1px solid #d7b7e8; border-radius:7px; background:#f0e5fb; color:#51317b; font-size:.72rem; font-weight:800; }
-.pending-skip .playing-card { flex:0 0 25px; width:25px; min-height:34px; padding:2px; font-size:.55rem; }
-.pending-skip .card-value { font-size:.65rem; } .opponent-name { margin:0 0 4px; font-weight:800; } .opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; } .opponent-hand { display:flex; flex-wrap:wrap; gap:4px; } .opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; } .opponent-hand .card-value { font-size:.8rem; } .opponent-hand .card-color { font-size:.42rem; }
+
+.pending-skip {
+  display:flex;
+  align-items:center;
+  width:max-content;
+  max-width:100%;
+  gap:0;
+  margin:5px 0 7px;
+  padding:3px;
+  border:1px solid #d7b7e8;
+  border-radius:7px;
+  background:#f0e5fb;
+  color:#51317b;
+}
+
+.pending-skip .playing-card {
+  flex:0 0 34px;
+  width:34px;
+  min-height:48px;
+  padding:3px;
+  font-size:.65rem;
+}
+
+.pending-skip .card-value { font-size:.78rem; }
+
+#human-pending-skip {
+  align-self:flex-start;
+  margin:0 0 2px;
+}
+
+.opponent-name { margin:0 0 4px; font-weight:800; }
+.opponent-meta { margin:0 0 7px; font-size:.78rem; color:#e3f4e6; }
+.opponent-hand { display:flex; flex-wrap:wrap; gap:4px; }
+.opponent-hand .playing-card { flex:0 0 30px; width:30px; min-height:43px; padding:3px 1px; font-size:.65rem; }
+.opponent-hand .card-value { font-size:.8rem; }
+.opponent-hand .card-color { font-size:.42rem; }
+  
+  
 @media (max-width:600px) { #opponent-areas { grid-template-columns:1fr; } .opponent-hand { max-height:70px; overflow:hidden; } }
 #human-hand { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:visible; align-items:flex-end; gap:clamp(4px,.65vw,9px); min-height:112px; padding:12px 7px 15px; border:1px solid #ffffff42; border-radius:12px; background:#0b4a2f9c; scrollbar-width:none; -ms-overflow-style:none; }
 #human-hand::-webkit-scrollbar { display:none; }
@@ -90,6 +125,9 @@ button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
 #laid-phases { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:6px; padding:6px; border:1px solid #b9d8b9; border-radius:12px; background:#dcefd8; }
 .tableau-player { border:1px solid #a9c9a8; border-radius:10px; margin:0; padding:6px; background:#edf7e9; }
 .tableau-player h4 { margin:0 0 4px; font-size:.76rem; }
+.tableau-player h4 {
+  color:#145c39;
+}
 .tableau { display:flex; flex-wrap:wrap; gap:3px; align-items:flex-start; }
 .tableau-group { border:1px dashed #a7b6aa; border-radius:6px; padding:3px; margin:1px; min-width:0; overflow:visible; }
 .tableau-group .tableau-label { font-size:.62rem; line-height:1.15; margin-bottom:2px; color:#596b5f; }
@@ -107,8 +145,21 @@ button.playing-card { background:linear-gradient(155deg,#fff,#f4f0e4); }
 #round-end-overlay { position:fixed; inset:0; z-index:10000; display:none; align-items:center; justify-content:center; padding:12px; background:#03190f38; backdrop-filter:blur(.6px); }
 #round-end-overlay.visible { display:flex; }
 #round-end-dialog { width:min(440px,94vw); max-height:78vh; overflow:auto; padding:12px 15px; border:1px solid #d8bd65; border-radius:14px; color:#183526; background:rgba(250,250,239,.86); box-shadow:0 10px 32px #0005; backdrop-filter:blur(5px); }
-#round-end-dialog h2 { color:#145c39; font-size:1.25rem; margin:0 0 4px; }
-#round-end-winner { margin:0 0 16px; font-size:1rem; }
+
+#round-end-dialog h2 {
+  color:#145c39;
+  font-size:1.4rem;
+  font-weight:900;
+  margin:0 0 4px;
+}
+
+#round-end-winner {
+  margin:0 0 16px;
+  font-size:.92rem;
+  font-weight:500;
+}
+
+  
 #round-score-table { width:100%; border-collapse:collapse; margin:10px 0 18px; }
 #round-score-table th,#round-score-table td { padding:7px 7px; text-align:left; border-bottom:1px solid #d6dfd3; }
 #round-score-table th { color:#47614f; font-size:.82rem; }
@@ -431,9 +482,19 @@ function showRoundEndPopup() {
   if (action?.type !== "roundEnd" || !action.roundScores) return false;
   roundPaused = true;
   const finisher = playableGame.players.find(p => p.id === action.finisherId)?.name || "A player";
-  document.getElementById("round-end-winner").textContent = playableGame.status === "finished"
-    ? `${finisher} went out and wins the game!`
-    : `${finisher} went out. Here are the points for this round.`;
+  
+  
+  const gameFinished = playableGame.status === "finished";
+
+  document.getElementById("round-end-title").textContent =
+    gameFinished ? "Winner of the Game!" : "Round Over!";
+
+  document.getElementById("round-end-winner").textContent =
+    gameFinished
+      ? `${finisher} wins Phase 10!`
+      : `${finisher} went out. Here are the points for this round.`;
+  
+  
   const rows = document.getElementById("round-score-rows");
   rows.replaceChildren();
   playableGame.players.forEach(player => {
@@ -556,12 +617,11 @@ function renderPlayableGame() {
   const humanPendingSkip = document.getElementById("human-pending-skip");
   humanPendingSkip.replaceChildren();
   humanPendingSkip.hidden = !player.pendingSkipCard;
+  
   if (player.pendingSkipCard) {
     humanPendingSkip.appendChild(cardElement(player.pendingSkipCard));
-    const pendingText = document.createElement("span");
-    pendingText.textContent = "Skip waiting — you will lose your next turn";
-    humanPendingSkip.appendChild(pendingText);
   }
+  
   opponentAreas.replaceChildren();
   playableGame.players.filter(p => p.kind === "computer").forEach(opponent => {
     const area = document.createElement("section");
@@ -575,14 +635,14 @@ function renderPlayableGame() {
 
     const pendingSkip = document.createElement("div");
     pendingSkip.className = "pending-skip";
+    
     if (opponent.pendingSkipCard) {
       pendingSkip.appendChild(cardElement(opponent.pendingSkipCard));
-      const pendingText = document.createElement("span");
-      pendingText.textContent = "Skip waiting — this player loses their next turn";
-      pendingSkip.appendChild(pendingText);
     } else {
       pendingSkip.hidden = true;
     }
+
+    
     const hand = document.createElement("div");
     hand.className = "opponent-hand";
     hand.setAttribute("aria-label", `${opponent.name}'s face-down cards`);
