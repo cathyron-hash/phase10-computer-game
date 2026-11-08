@@ -389,10 +389,10 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   <section id="player-setup-dialog">
     <h2 id="player-setup-title">Player setup</h2>
     <p>One human player and three computer opponents. Names are saved on this device.</p>
-    <div class="setup-field"><label for="name-human">You</label><input id="name-human" maxlength="18" value="Ron" autocomplete="off"></div>
-    <div class="setup-field"><label for="name-alex">Computer 1</label><input id="name-alex" maxlength="18" value="Alex" autocomplete="off"></div>
-    <div class="setup-field"><label for="name-sophie">Computer 2</label><input id="name-sophie" maxlength="18" value="Sophie" autocomplete="off"></div>
-    <div class="setup-field"><label for="name-taylor">Computer 3</label><input id="name-taylor" maxlength="18" value="Taylor" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-human">You</label><input id="name-human" maxlength="18" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-alex">Computer 1</label><input id="name-alex" maxlength="18" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-sophie">Computer 2</label><input id="name-sophie" maxlength="18" autocomplete="off"></div>
+    <div class="setup-field"><label for="name-taylor">Computer 3</label><input id="name-taylor" maxlength="18" autocomplete="off"></div>
     <div class="confirm-actions" style="margin-top:16px">
       <button id="setup-cancel" type="button" class="secondary">Cancel</button>
       <button id="setup-start" type="button">Start game</button>
@@ -419,8 +419,10 @@ body > .buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
   </section>
 </div>
 
+
 <script type="module">
 import * as Engine from "./phase10-engine-v29.js";
+import { PLAYER_DEFAULTS } from "./player-config.js";
 
 const out = document.getElementById("results");
 const board = document.getElementById("board");
@@ -451,7 +453,8 @@ const computerIds = ["alex", "sophie", "taylor"];
 const computerStyles = { alex: "Strategic", sophie: "Tactical", taylor: "Bold" };
 
 function loadPlayerNames() {
-  const defaults = { human: "Ron", alex: "Alex", sophie: "Sophie", taylor: "Taylor" };
+
+  const defaults = { ...PLAYER_DEFAULTS };
   try {
     const saved = JSON.parse(localStorage.getItem("phase10-player-names-v29") || "{}");
     for (const id of Object.keys(defaults)) {
