@@ -1,5 +1,5 @@
 /**
- * Phase 10 Game Engine — V29
+ * Phase 10 Game Engine — Final
  *
  * Browser-friendly ES module, independent of the user interface.
  *
